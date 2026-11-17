@@ -1,24 +1,16 @@
-// Every surface in the house has two looks and one shader that blends them.
-//
-//   ink      flat paper colour, no light. With the black edge lines on top it
-//            reads as a line drawing.
-//   material the real thing: textured, lit, shadowed.
-//
-// Which look a pixel gets depends on the room it faces and how far that room's
-// sweep has travelled. Insides of the wall solid are always solid ink, which
-// is what makes the cut walls of the plan black.
+// Every surface in the apartment has two looks and one shader that blends them:
+//   ink      flat paper colour, no light, paired with black architectural lines.
+//   material full PBR material: Poly Haven CC0 maps, procedural tile joints,
+//            soft room ambient occlusion, and directional shadows.
 
 import * as THREE from 'three';
 import { PAPER, INK, ROOMS, CUT_PLAN } from './plan.js';
 
-// ---- the cut -----------------------------------------------------------
-// One clipping plane shared by everything. Keeps what is below `constant`.
 export const CUT = new THREE.Plane(new THREE.Vector3(0, -1, 0), CUT_PLAN);
 
-// ---- room sweeps -------------------------------------------------------
-const raw = (hex) => new THREE.Color().setStyle(hex, THREE.LinearSRGBColorSpace); // keep sRGB numbers as they are
+const raw = (hex) => new THREE.Color().setStyle(hex, THREE.LinearSRGBColorSpace);
 const IDLE = -1e4;
-const SOFT = 1.1; // metres over which ink turns into material behind the front
+const SOFT = 1.1;
 
 const sweepOf = (r) => {
   const dx = r.dir[0], dz = -r.dir[1];
@@ -35,10 +27,9 @@ export const U = {
   uRoomSweep: { value: SW.map((s) => new THREE.Vector4(s.ox, s.oz, s.dx, s.dz)) },
   uRoomState: { value: ROOMS.map((r) => new THREE.Vector2(IDLE, r.ceil)) },
   uSoft: { value: SOFT },
-  uInkTone: { value: 0.045 }, // a faint wash on upright faces so the drawing reads as solid
+  uInkTone: { value: 0.045 },
 };
 
-// Clipping planes that remove a room's ink lines behind its sweep front.
 export const SWEEP_PLANES = {};
 ROOMS.forEach((r, i) => {
   SWEEP_PLANES[r.key] = new THREE.Plane(new THREE.Vector3(SW[i].dx, 0, SW[i].dz), 1e4);
@@ -47,10 +38,15 @@ ROOMS.forEach((r, i) => {
 // t: 0 = line drawing, 1 = fully material
 export function setRoomReveal(key, t) {
   const i = ROOMS.findIndex((r) => r.key === key);
+  if (i < 0) return;
   const s = SW[i];
   const front = t <= 0 ? IDLE : -0.4 + t * (s.len + SOFT + 0.8);
   U.uRoomState.value[i].x = front;
   SWEEP_PLANES[key].constant = -(s.ox * s.dx + s.oz * s.dz + front);
+}
+
+export function setAllRoomsReveal(t) {
+  for (const r of ROOMS) setRoomReveal(r.key, t);
 }
 
 const NR = ROOMS.length;
@@ -81,7 +77,7 @@ int roomOf(vec3 q) {
   }
   return -1;
 }
-// 1 = line drawing, 0 = material
+
 float inkOf(vec3 q, int r) {
   if (r < 0) return 1.0;
   vec4 s = uRoomSweep[r];
@@ -89,18 +85,17 @@ float inkOf(vec3 q, int r) {
   float f = uRoomState[r].x;
   return smoothstep(f - uSoft, f, d);
 }
-// Cheap stand-in for bounced light: surfaces get a little darker where they
-// come close to the walls, floor and ceiling of their room.
+
 float roomAO(vec3 p, vec3 nn, int r) {
   if (r < 0) return 1.0;
   vec4 b = uRoomBox[r];
   float top = uRoomState[r].y;
-  float R = 1.1;
+  float R = 0.95;
   float occ = 0.0;
-  occ += (1.0 - abs(nn.x)) * (exp(-max(p.x - b.x - 0.1, 0.0) / R) + exp(-max(b.z - 0.1 - p.x, 0.0) / R));
-  occ += (1.0 - abs(nn.z)) * (exp(-max(p.z - b.y - 0.1, 0.0) / R) + exp(-max(b.w - 0.1 - p.z, 0.0) / R));
+  occ += (1.0 - abs(nn.x)) * (exp(-max(p.x - b.x - 0.08, 0.0) / R) + exp(-max(b.z - 0.08 - p.x, 0.0) / R));
+  occ += (1.0 - abs(nn.z)) * (exp(-max(p.z - b.y - 0.08, 0.0) / R) + exp(-max(b.w - 0.08 - p.z, 0.0) / R));
   occ += (1.0 - abs(nn.y)) * (exp(-max(p.y, 0.0) / R) + exp(-max(top - p.y, 0.0) / R));
-  return clamp(1.0 - uAO * occ, 0.3, 1.0);
+  return clamp(1.0 - uAO * occ, 0.35, 1.0);
 }
 `;
 
@@ -115,7 +110,6 @@ vWn = normalize(mat3(modelMatrix) * objectNormal);
 
 const GRADE = /* glsl */ `
 {
-  // texture grading: pull towards the map's average colour, desaturate, tint
   vec3 c = uMean + (diffuseColor.rgb - uMean) * uContrast;
   float l = dot(c, vec3(0.2126, 0.7152, 0.0722));
   diffuseColor.rgb = max(mix(vec3(l), c, uSat), 0.0) * uTint;
@@ -149,8 +143,7 @@ const INKMIX = /* glsl */ `
 }
 `;
 
-// Turns a MeshStandardMaterial (or Physical) into an ink-aware one.
-export function inkAware(material, { backInk = false, glass = false, sat = 1, tint = [1, 1, 1], mean = [0.5, 0.5, 0.5], contrast = 1, ao = 0.28 } = {}) {
+export function inkAware(material, { backInk = false, glass = false, sat = 1, tint = [1, 1, 1], mean = [0.5, 0.5, 0.5], contrast = 1, ao = 0.24 } = {}) {
   material.side = THREE.DoubleSide;
   material.clippingPlanes = [CUT];
   material.polygonOffset = true;
@@ -181,8 +174,7 @@ export function inkAware(material, { backInk = false, glass = false, sat = 1, ti
   return material;
 }
 
-// Soft dark patch under furniture. Only exists where the room is material.
-export function contactShadowMaterial(strength = 0.5) {
+export function contactShadowMaterial(strength = 0.45) {
   return new THREE.ShaderMaterial({
     transparent: true,
     depthWrite: false,
@@ -235,13 +227,45 @@ function tex(file, { srgb = false, size = 1, rot = 0 } = {}) {
 }
 export const texturesReady = () => Promise.all(pending);
 
-function pbr(name, { size = 1, rot = 0, diff = '_diff_1k.jpg', nor = '_nor_gl_1k.jpg', rough = '_rough_1k.jpg', normalScale = 1, roughness = 1, ...ink } = {}) {
+// Procedural architectural tile joint normal map (1 tile unit = `tileSize` metres)
+function tileNormalTexture({ tileSize = 0.6, nx = 2, ny = 2, groutPx = 3, strength = 0.35 } = {}) {
+  const S = 256;
+  const c = document.createElement('canvas');
+  c.width = S; c.height = S;
+  const g = c.getContext('2d');
+  g.fillStyle = 'rgb(128,128,255)';
+  g.fillRect(0, 0, S, S);
+  const dx = S / nx, dy = S / ny;
+  const bevel = Math.max(2, groutPx);
+  for (let i = 0; i < nx; i++) {
+    const x = Math.round(i * dx);
+    // left slope (-x) and right slope (+x)
+    g.fillStyle = `rgb(${Math.round(128 - 90 * strength)},128,240)`;
+    g.fillRect(x, 0, bevel, S);
+    g.fillStyle = `rgb(${Math.round(128 + 90 * strength)},128,240)`;
+    g.fillRect((x + S - bevel) % S, 0, bevel, S);
+  }
+  for (let j = 0; j < ny; j++) {
+    const y = Math.round(j * dy);
+    g.fillStyle = `rgb(128,${Math.round(128 - 90 * strength)},240)`;
+    g.fillRect(0, y, S, bevel);
+    g.fillStyle = `rgb(128,${Math.round(128 + 90 * strength)},240)`;
+    g.fillRect(0, (y + S - bevel) % S, S, bevel);
+  }
+  const t = new THREE.CanvasTexture(c);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.repeat.set(1 / (tileSize * nx), 1 / (tileSize * ny));
+  t.anisotropy = maxAniso;
+  return t;
+}
+
+function pbr(name, { size = 1, rot = 0, diff = '_diff_1k.jpg', nor = '_nor_gl_1k.jpg', rough = '_rough_1k.jpg', normalScale = 1, roughness = 1, metalness = 0, ...ink } = {}) {
   const m = new THREE.MeshStandardMaterial({
     map: tex(name + diff, { srgb: true, size, rot }),
     normalMap: nor ? tex(name + nor, { size, rot }) : null,
     roughnessMap: rough ? tex(name + rough, { size, rot }) : null,
     roughness,
-    metalness: 0,
+    metalness,
   });
   m.normalScale.set(normalScale, normalScale);
   return inkAware(m, ink);
@@ -250,73 +274,67 @@ function pbr(name, { size = 1, rot = 0, diff = '_diff_1k.jpg', nor = '_nor_gl_1k
 const flat = (color, { roughness = 0.8, metalness = 0, emissive = 0x000000, emissiveIntensity = 1, ...ink } = {}) =>
   inkAware(new THREE.MeshStandardMaterial({ color, roughness, metalness, emissive, emissiveIntensity }), ink);
 
-// A painting for the hall, made in a canvas so nothing has to be downloaded.
-function paintingTexture() {
-  const c = document.createElement('canvas');
-  c.width = 900; c.height = 650;
-  const g = c.getContext('2d');
-  let seed = 7;
-  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  g.fillStyle = '#d9cfbd'; g.fillRect(0, 0, 900, 650);
-  // broad horizontal washes
-  for (let i = 0; i < 260; i++) {
-    const y = rnd() * 650, h = 6 + rnd() * 46, x = -50 + rnd() * 300, w = 500 + rnd() * 500;
-    const upper = y < 300;
-    const tone = upper ? [222 + rnd() * 20, 212 + rnd() * 18, 192 + rnd() * 16] : [120 + rnd() * 60, 84 + rnd() * 40, 52 + rnd() * 30];
-    g.fillStyle = `rgba(${tone[0] | 0},${tone[1] | 0},${tone[2] | 0},${0.05 + rnd() * 0.12})`;
-    g.fillRect(x, y, w, h);
-  }
-  // one dark field low on the canvas and a thin horizon
-  const grd = g.createLinearGradient(0, 330, 0, 650);
-  grd.addColorStop(0, 'rgba(60,44,32,0)'); grd.addColorStop(0.35, 'rgba(58,42,30,0.55)'); grd.addColorStop(1, 'rgba(40,30,24,0.8)');
-  g.fillStyle = grd; g.fillRect(0, 330, 900, 320);
-  g.fillStyle = 'rgba(190,96,48,0.75)'; g.fillRect(120, 318, 560, 7);
-  for (let i = 0; i < 3000; i++) {
-    g.fillStyle = `rgba(${rnd() < 0.5 ? 255 : 0},${rnd() < 0.5 ? 250 : 0},${rnd() < 0.5 ? 240 : 0},0.03)`;
-    g.fillRect(rnd() * 900, rnd() * 650, 1 + rnd() * 3, 1 + rnd() * 2);
-  }
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  t.anisotropy = 8;
-  // the picture hangs on the west wall at n 3.3 to 5.1, y 1.14 to 2.44; UVs are in metres
-  t.wrapS = t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(1 / 1.8, 1 / 1.3);
-  t.offset.set(5.1 / 1.8, -1.14 / 1.3);
-  return t;
-}
-
 export function makeMaterials() {
   const M = {};
-  // Average colours of the maps (linear), used to calm their contrast.
   const PLASTER = [0.44, 0.39, 0.34], LIME = [0.445, 0.33, 0.195], OAKC = [0.28, 0.19, 0.125], HIDE = [0.084, 0.026, 0.006];
-  // pale limestone floor, laid in random courses
-  M.floor = pbr('marble_01', { size: 2.6, diff: '_diff_2k.jpg', nor: '_nor_gl_2k.jpg', normalScale: 0.5, roughness: 0.6, mean: LIME, contrast: 0.9, sat: 0.42, tint: [1.52, 1.52, 1.5], backInk: true });
-  // lime plaster. The wall solid uses this, so its insides are ink.
-  M.plaster = pbr('plastered_wall', { size: 3.2, normalScale: 0.07, roughness: 0.96, mean: PLASTER, contrast: 0.45, sat: 0.3, tint: [1.86, 1.83, 1.77], backInk: true });
-  M.ceiling = flat(0xe9e5dc, { roughness: 1 });
-  // rift-cut oak, grain running up the wall
-  const OAK = { diff: '_diff_2k.jpg', normalScale: 0.5, roughness: 0.82, mean: OAKC };
-  M.oak = pbr('white_oak_veneer', { ...OAK, size: 1.05, sat: 0.95, tint: [1.5, 1.45, 1.36], backInk: true });
-  M.oakDoor = pbr('white_oak_veneer', { ...OAK, size: 1.05, sat: 0.95, tint: [1.1, 1.02, 0.94], backInk: true });
-  // oak for furniture, grain running along the piece
-  M.oakLong = pbr('white_oak_veneer', { ...OAK, size: 1.05, rot: Math.PI / 2, sat: 0.95, tint: [1.4, 1.35, 1.26] });
-  M.leather = pbr('brown_leather', { size: 0.7, diff: '_albedo_1k.jpg', normalScale: 0.8, roughness: 0.7, mean: HIDE, sat: 0.55, tint: [4.4, 4.4, 3.4] });
-  // honed travertine, borrowing the plaster maps with a warmer tint
-  M.stone = pbr('plastered_wall', { size: 1.4, normalScale: 0.08, roughness: 0.5, mean: PLASTER, contrast: 0.8, sat: 0.7, tint: [1.48, 1.4, 1.2] });
-  M.bronze = flat(0x8a6a44, { roughness: 0.36, metalness: 1 });
-  M.ceramicDark = flat(0x2b2622, { roughness: 0.55 });
-  M.ceramicSand = flat(0xb9a88e, { roughness: 0.8 });
-  M.branch = flat(0x4b3d30, { roughness: 0.9 });
-  M.bookA = flat(0xd8d0c2, { roughness: 0.85 });
-  M.bookB = flat(0x7c3f2a, { roughness: 0.8 });
-  M.bookC = flat(0x2e3a3a, { roughness: 0.8 });
-  M.lamp = flat(0xfff1dc, { roughness: 0.4, emissive: 0xffd9a8, emissiveIntensity: 3.5 });
-  M.painting = inkAware(new THREE.MeshStandardMaterial({ map: paintingTexture(), roughness: 0.9 }));
+
+  // Reception, dining, corridor: warm honed cream-beige marble
+  M.floor = pbr('marble_01', { size: 2.2, diff: '_diff_2k.jpg', nor: '_nor_gl_2k.jpg', normalScale: 0.48, roughness: 0.34, mean: LIME, contrast: 0.95, sat: 0.45, tint: [1.38, 1.34, 1.25], backInk: true });
+
+  // Bedrooms & dressing: warm white oak parquet flooring
+  M.woodFloor = pbr('white_oak_veneer', { size: 1.35, diff: '_diff_2k.jpg', normalScale: 0.5, roughness: 0.56, mean: OAKC, contrast: 0.95, sat: 0.9, tint: [1.32, 1.24, 1.12], backInk: true });
+
+  // Kitchen & utility/services: cool warm-grey honed porcelain stone tiles
+  M.tileKitchen = pbr('marble_01', { size: 1.6, diff: '_diff_2k.jpg', nor: null, normalScale: 0.65, roughness: 0.44, mean: LIME, contrast: 0.72, sat: 0.16, tint: [1.14, 1.16, 1.18], backInk: true });
+  M.tileKitchen.normalMap = tileNormalTexture({ tileSize: 0.6, nx: 2, ny: 2, groutPx: 3, strength: 0.45 });
+
+  // Bathrooms: warm sand-travertine ceramic tile
+  M.tileBath = pbr('plastered_wall', { size: 1.5, nor: null, normalScale: 0.58, roughness: 0.4, mean: PLASTER, contrast: 0.62, sat: 0.32, tint: [1.62, 1.56, 1.46], backInk: true });
+  M.tileBath.normalMap = tileNormalTexture({ tileSize: 0.45, nx: 2, ny: 2, groutPx: 3, strength: 0.4 });
+
+  // Balconies: matte sandstone terrace paving
+  M.tileBalcony = pbr('plastered_wall', { size: 1.8, nor: null, normalScale: 0.7, roughness: 0.78, mean: PLASTER, contrast: 0.76, sat: 0.48, tint: [1.44, 1.36, 1.24], backInk: true });
+  M.tileBalcony.normalMap = tileNormalTexture({ tileSize: 0.5, nx: 2, ny: 2, groutPx: 4, strength: 0.55 });
+
+  // Walls & ceilings: warm architectural lime-plaster
+  M.plaster = pbr('plastered_wall', { size: 3.0, normalScale: 0.08, roughness: 0.92, mean: PLASTER, contrast: 0.4, sat: 0.28, tint: [1.86, 1.83, 1.77], backInk: true });
+  M.ceiling = flat(0xeae6dd, { roughness: 0.96, backInk: true });
+
+  // Architectural stone accents (balcony coping, sills, vanity tops)
+  M.stone = pbr('plastered_wall', { size: 1.4, normalScale: 0.12, roughness: 0.52, mean: PLASTER, contrast: 0.75, sat: 0.58, tint: [1.48, 1.42, 1.28], backInk: true });
+
+  // Kitchen dark granite / emperador countertop
+  M.countertop = pbr('marble_01', { size: 1.4, diff: '_diff_2k.jpg', nor: '_nor_gl_2k.jpg', normalScale: 0.25, roughness: 0.24, mean: LIME, contrast: 1.0, sat: 0.25, tint: [0.36, 0.35, 0.34] });
+
+  // Natural oak joinery (doors, cabinetry, dining table, bed frames, wardrobes)
+  const OAK = { diff: '_diff_2k.jpg', normalScale: 0.48, roughness: 0.72, mean: OAKC };
+  M.oak = pbr('white_oak_veneer', { ...OAK, size: 1.1, sat: 0.92, tint: [1.46, 1.40, 1.30], backInk: true });
+  M.oakDoor = pbr('white_oak_veneer', { ...OAK, size: 1.05, sat: 0.92, tint: [1.18, 1.10, 1.00], backInk: true });
+  M.oakLong = pbr('white_oak_veneer', { ...OAK, size: 1.05, rot: Math.PI / 2, sat: 0.92, tint: [1.38, 1.32, 1.22] });
+
+  // Leather & Upholstery
+  M.leather = pbr('brown_leather', { size: 0.7, diff: '_albedo_1k.jpg', normalScale: 0.7, roughness: 0.64, mean: HIDE, sat: 0.58, tint: [4.2, 4.1, 3.2] });
+  M.fabricSofa = pbr('plastered_wall', { size: 0.9, normalScale: 0.18, roughness: 0.9, mean: PLASTER, contrast: 0.32, sat: 0.22, tint: [1.72, 1.68, 1.60] });
+  M.fabricBed = pbr('plastered_wall', { size: 1.0, normalScale: 0.14, roughness: 0.88, mean: PLASTER, contrast: 0.25, sat: 0.16, tint: [1.88, 1.86, 1.82] });
+  M.fabricAccent = flat(0x9a8c7b, { roughness: 0.88 });
+  M.rug = pbr('plastered_wall', { size: 1.2, normalScale: 0.22, roughness: 0.95, mean: PLASTER, contrast: 0.4, sat: 0.2, tint: [1.46, 1.42, 1.35] });
+
+  // Metals, Sanitary, Plants, Glass
+  M.bronze = flat(0x4b4036, { roughness: 0.36, metalness: 0.88 });
+  M.chrome = flat(0xd9dde0, { roughness: 0.22, metalness: 0.92 });
+  M.sanitary = flat(0xf6f5f1, { roughness: 0.16, metalness: 0.02 });
+  M.appliance = flat(0xcfd3d6, { roughness: 0.32, metalness: 0.78 });
+  M.stoveTop = flat(0x222327, { roughness: 0.28, metalness: 0.35 });
+  M.foliage = flat(0x4c6642, { roughness: 0.78 });
+  M.terracotta = flat(0x9d644c, { roughness: 0.84 });
+  M.lamp = flat(0xfff1dc, { roughness: 0.4, emissive: 0xffd9a8, emissiveIntensity: 3.2 });
   M.generic = flat(0xd8d2c6, { roughness: 0.9 });
+
   M.glass = inkAware(
-    new THREE.MeshPhysicalMaterial({ color: 0xdfe9ea, roughness: 0.04, metalness: 0, transparent: true, opacity: 0.16, depthWrite: false, envMapIntensity: 1.2 }),
+    new THREE.MeshPhysicalMaterial({ color: 0xdce8ea, roughness: 0.05, metalness: 0, transparent: true, opacity: 0.18, depthWrite: false, envMapIntensity: 1.2 }),
     { glass: true, ao: 0 }
   );
   M.glass.polygonOffset = false;
+
   return M;
 }

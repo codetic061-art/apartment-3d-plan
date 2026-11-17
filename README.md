@@ -1,51 +1,33 @@
-# Casa Larga: what one prompt gave
+# Apartment Floor Plan — Interactive 3D Architectural Visualization
 
-A lot of people asked me for the prompt behind [my floor plan demo](https://sam1983aing.github.io/casa-serra/). There isn't one. That page took about 70 prompts over two weeks.
+An interactive, scroll-driven & orbit-capable 3D architectural reconstruction of the user's exact apartment floor plan, adapted directly on top of the original `casa-larga` Three.js + GSAP + Lenis rendering pipeline.
 
-So I wrote the prompt I would start with today and tested it once, on a fresh Claude Code session (Opus 5.5) that knew nothing about my project. This repo is what came back, exactly as it came. Nothing was fixed by hand.
+## Architectural Source of Truth
+- **Geometry & Room Layout**: Reconstructed directly from [`assets/references/reference-a1-detailed-plan.jpg`](assets/references/reference-a1-detailed-plan.jpg) (`10.00 × 17.00 m` outer envelope) and [`assets/references/reference-a2-room-dimensions.jpg`](assets/references/reference-a2-room-dimensions.jpg) (`9.00 × 14.50 m` modular grid), preserving every external wall, interior partition, door opening and swing direction, exterior window bay, central core shaft/baths (`صالة` / `حمام`), U-shaped kitchen (`مطبخ`), reception & dining (`استقبال`), master suite (`ماستر` + `دريسنج` + `حمام`), bedrooms 1–3 (`نوم ١–٣`), services (`خدمات / لفتح`), and both curved front balconies with potted palms.
+- **Configurable Assumptions (`CONFIG` in `js/plan.js`)**:
+  - Clear wall height: `3.00 m`
+  - Ceiling slab thickness: `0.24 m`
+  - Exterior wall thickness: `0.20 m`, interior partition thickness: `0.12 m`
+  - Standard door leaf height: `2.20 m`
+  - Standard window sill / head: `0.90 m – 2.35 m` (bathroom windows: `1.45 m – 2.25 m`)
+  - Curved balcony masonry curb: `0.42 m`, bronze railing height: `1.05 m`
 
-**Live:** https://sam1983aing.github.io/casa-larga/
+## Materials & Licenses
+- **Poly Haven CC0 Scans (`assets/textures/`)**:
+  - `marble_01` (2K diffuse/normal, 1K rough) — honed cream marble flooring in Reception/Corridors, dark granite kitchen worktops, and porcelain kitchen tiles (with procedural tile-joint normal map).
+  - `plastered_wall` (1K maps) — architectural lime-plaster walls, honed travertine accents, bathroom ceramic tiles, and balcony paving.
+  - `white_oak_veneer` (2K diffuse, 1K normal/rough) — bedroom & dressing oak parquet, interior doors, cabinetry, dining table, and wardrobes.
+  - `brown_leather` (1K maps) — cognac leather dining chairs and lounge accent chair.
+- All downloaded/bundled PBR textures from [Poly Haven](https://polyhaven.com) are **CC0 (Public Domain)**.
+- Note: Building entrance photographs (References B & C) were not supplied alongside the two floor plan references, so a cohesive warm limestone-plaster, honed cream marble, natural oak veneer, and dark bronze architectural palette was selected and documented in `js/materials.js`.
 
-## How the test went
+## Interactive Features
+- **Scroll Tour**: Seamless 2° top-down `+1.20 m` architectural blueprint transitioning into rising walls, curved balcony approach, and eye-height room-by-room PBR material reveal.
+- **3D Orbit / Isometric / Top Plan**: Switch anytime via the bottom control bar, inspect individual rooms with **Room Focus**, toggle the ceiling slab (**Ceiling ON/OFF**), switch **Auto / Full PBR / Ink Plan** rendering, and toggle **9.0×14.5m / 10.0×17.0m** sheet dimensions.
 
-1. I pasted the prompt below. The session wrote no code. It proposed three house layouts with sizes, a camera path stop by stop, said which one it would pick, and waited.
-2. I answered with one line: "A. The palette is right. Invent a name and a place."
-3. About an hour later it had built the first checkpoint and stopped again: the plan sheet, the walls rising, the walk to the front door, and materials sweeping across the entrance hall while the next room stays a drawing.
-
-That is all this page does. It stops inside the front door. The house and the place name are invented.
-
-## The prompt
-
-Swap the parts in `[brackets]` for your own subject. For this test they were: a house, the entrance hall, the living room, the kitchen and the courtyard, a house that costs millions.
-
-```text
-I want to build a scroll-driven landing page for [an architecture studio, a house, a hotel, your subject].
-
-The idea: the page opens on a flat floor plan, like a sheet an architect prints. Black ink on paper, room names, dimensions. Nothing looks 3D. When the visitor scrolls, the walls rise out of the drawing, the camera comes down to the front door and walks through [the rooms you want, in order] at eye height. Each room stays a line drawing until the camera gets there, then the real materials sweep across it.
-
-What I care about:
-- The floor plan is not a picture. It is the real 3D model, cut at about 1.2 m and seen from straight above through a very long lens. The drawing and the building are the same thing.
-- The camera travels deep into the space, room after room. It does not orbit the building from outside.
-- It should feel like [a house that costs millions, your level of ambition]: big rooms, real furniture, late afternoon light.
-- three.js, GSAP ScrollTrigger and Lenis, plain files, no build step. Free CC0 materials for the textures.
-
-Before you write any code, propose the layout of the building with sizes I can picture, and the camera path stop by stop. Give me two or three directions to choose from and wait for my answer. Then build in checkpoints. First checkpoint only: the plan sheet, the walls rising, and the walk to the first room. Record it and show me before you go further.
-```
-
-The last paragraph matters as much as the idea. Without it you get a finished page you did not choose.
-
-## What to take from it
-
-This is one run, so yours will look different. It is a good start, and it is not the page in my post. The difference is what happened after: asking for options I could watch, giving every room a score out of ten, and going again.
-
-## Run it yourself
-
-Plain files, no build step. The code is readable, so open it and look around.
-
+## Local Preview
+Plain static ES modules (no build step required):
 ```bash
-python3 -m http.server 8231
+python -m http.server 8231
 ```
-
-Then open http://localhost:8231. It needs a server because browsers block modules and textures from a double-clicked file.
-
-three.js 0.170, GSAP 3.12.5 and Lenis 1.1.14 load from jsDelivr. The twelve texture maps in `assets/textures/` are CC0 scans from [Poly Haven](https://polyhaven.com).
+Then open `http://localhost:8231`.

@@ -3,12 +3,12 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Casa Larga. A house on one line.</title>
-  <meta name="description" content="Casa Larga, Coll de Marès, Mallorca. A floor plan you can walk into.">
+  <title>شقة سكنية · Architectural Floor Plan in 3D</title>
+  <meta name="description" content="Exact 3D architectural reconstruction of the apartment floor plan — Reception, Curved Balconies, Kitchen, Central Core, Master Suite & Bedrooms.">
   <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lenis@1.1.14/dist/lenis.css">
   <link rel="stylesheet" href="css/style.css">
   <script type="importmap">
@@ -25,44 +25,72 @@
   <div id="grain" aria-hidden="true"></div>
 
   <header id="bar">
-    <span class="mark">Casa Larga</span>
+    <span class="mark">Apartment Plan <span class="ar-mark">· شقة سكنية</span></span>
     <span id="hud" class="chip" aria-hidden="true">
       <span>LENS <b id="hud-lens">2.0°</b></span>
-      <span>HEIGHT <b id="hud-height">1 718 m</b></span>
+      <span>HEIGHT <b id="hud-height">670 m</b></span>
       <span>CUT <b id="hud-cut">+1.20 m</b></span>
     </span>
   </header>
 
   <section id="hero" class="overlay">
-    <p class="eyebrow">Coll de Marès, Mallorca <span class="wide">&nbsp;·&nbsp; Ground floor plan</span> &nbsp;·&nbsp; A-101</p>
-    <h1><span class="l"><span>A house</span></span><span class="l"><span>on <em>one line.</em></span></span></h1>
-    <p class="lede"><span class="wide">Forty metres from the front door to the tree in the courtyard. </span>This drawing is the building. Scroll and walk into it.</p>
+    <p class="eyebrow">Architectural Sheet A-101 <span class="wide">&nbsp;·&nbsp; 9.00 × 14.50 m / 10.00 × 17.00 m</span></p>
+    <h1><span class="l"><span>Your plan,</span></span><span class="l"><span>in <em>true 3D.</em></span></span></h1>
+    <p class="lede"><span class="wide">Curved front balconies, reception, central hall, kitchen, master suite, and three bedrooms. </span>Scroll to raise the walls and walk inside, or switch to Orbit &amp; Isometric inspection.</p>
     <p class="cue"><i></i> Scroll</p>
   </section>
 
   <aside id="cap-lift" class="overlay cap">
-    <p class="no">02 &nbsp; The lift</p>
-    <p class="say">The plan was never a picture. It is the house, cut at 1.2 m. Now the cut rises.</p>
+    <p class="no">02 &nbsp; The Lift · رفع الحوائط</p>
+    <p class="say">The floor plan cuts at +1.20 m. Now every wall, window, and curved balcony rises in place.</p>
   </aside>
 
-  <aside id="cap-fore" class="overlay cap">
-    <p class="no">03 &nbsp; The forecourt</p>
-    <p class="say">Eight metres to the door. Everything ahead is still ink.</p>
+  <aside id="cap-balc" class="overlay cap">
+    <p class="no">03 &nbsp; Curved Balconies &amp; Reception · تراس واستقبال</p>
+    <p class="say">Two semicircular balconies open into the reception and dining hall (استقبال).</p>
   </aside>
 
-  <aside id="cap-hall" class="overlay cap">
-    <p class="no">04 &nbsp; Entrance hall &nbsp; 4.00 × 7.00</p>
-    <p class="say">Limestone, oak, lime plaster. The living room is next, and it is still a drawing.</p>
+  <aside id="cap-core" class="overlay cap">
+    <p class="no">04 &nbsp; Kitchen &amp; Central Core · مطبخ وصالة</p>
+    <p class="say">Through the corridor past the guest bath, U-shaped kitchen (مطبخ), and central hall (صالة).</p>
+  </aside>
+
+  <aside id="cap-suite" class="overlay cap">
+    <p class="no">05 &nbsp; Master Suite &amp; Bedrooms · ماستر وغرف النوم</p>
+    <p class="say">Upper corridor (طرقة) connecting bedrooms 1–3 (نوم ١–٣), master suite (ماستر), dressing, and services (خدمات).</p>
   </aside>
 
   <nav id="rail" aria-hidden="true">
     <span data-at="0">01 Sheet</span>
     <span data-at="0.06">02 Lift</span>
-    <span data-at="0.56">03 Forecourt</span>
-    <span data-at="0.8">04 Hall</span>
+    <span data-at="0.28">03 Reception</span>
+    <span data-at="0.55">04 Kitchen</span>
+    <span data-at="0.78">05 Bedrooms</span>
   </nav>
 
-  <div id="loading"><span>Drawing the plan</span></div>
+  <div id="controls" class="chip" role="toolbar" aria-label="3D Architectural Controls">
+    <div class="ctrl-group" id="mode-btns">
+      <button type="button" data-mode="tour" class="on">Scroll Tour</button>
+      <button type="button" data-mode="orbit">3D Orbit</button>
+      <button type="button" data-mode="iso">Isometric</button>
+      <button type="button" data-mode="top">Top Plan</button>
+    </div>
+    <span class="sep" aria-hidden="true"></span>
+    <div class="ctrl-group">
+      <label class="ctrl-label" for="focus-room">Room</label>
+      <select id="focus-room" aria-label="Focus Room">
+        <option value="all">Full Apartment</option>
+      </select>
+    </div>
+    <span class="sep" aria-hidden="true"></span>
+    <div class="ctrl-group">
+      <button type="button" id="btn-ceiling">Ceiling: ON</button>
+      <button type="button" id="btn-finish">Finish: Auto</button>
+      <button type="button" id="btn-scale">Grid: 9.0×14.5m</button>
+    </div>
+  </div>
+
+  <div id="loading"><span>Drafting apartment plan</span></div>
 
   <main id="track"></main>
 
