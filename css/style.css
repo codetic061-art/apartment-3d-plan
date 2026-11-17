@@ -2,6 +2,7 @@
   --paper: #f1eee6;
   --ink: #17171a;
   --ink-soft: rgba(23, 23, 26, 0.62);
+  --measure: #009940;
   --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
   --serif: "Instrument Serif", "Cormorant Garamond", Georgia, serif;
   --arabic: "Cairo", "Noto Sans Arabic", Tahoma, sans-serif;
@@ -11,10 +12,11 @@
 
 html, body { background: var(--paper); color: var(--ink); }
 body { font-family: var(--mono); -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+body.mode-locked { overflow: hidden; }
 
-#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+#gl { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+#gl[data-measuring="1"] { cursor: crosshair; }
 
-/* paper tooth: fades away as real materials arrive */
 #grain {
   position: fixed; inset: 0; pointer-events: none; opacity: 0.5; mix-blend-mode: multiply;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='220'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.45  0 0 0 0 0.42  0 0 0 0 0.36  0 0 0 0.16 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
@@ -28,7 +30,7 @@ body { font-family: var(--mono); -webkit-font-smoothing: antialiased; overflow-x
 #bar {
   position: fixed; z-index: 6; top: 0; left: 0; right: 0;
   display: flex; justify-content: space-between; align-items: center;
-  padding: 28px clamp(18px, 3.4vw, 52px) 0;
+  padding: 24px clamp(18px, 3.4vw, 52px) 0;
   font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase;
   pointer-events: none;
 }
@@ -50,9 +52,9 @@ h1 em { font-style: italic; }
 .cue i { display: block; width: 1px; height: 42px; background: var(--ink); transform-origin: top; animation: cue 2.2s cubic-bezier(.6,0,.2,1) infinite; }
 @keyframes cue { 0% { transform: scaleY(0); } 55% { transform: scaleY(1); } 100% { transform: scaleY(1); opacity: 0; } }
 
-/* captions: architectural tag on the drawing */
+/* captions */
 .cap {
-  left: clamp(18px, 3.2vw, 46px); bottom: clamp(72px, 10vh, 96px); width: min(440px, calc(100vw - 36px));
+  left: clamp(18px, 3.2vw, 46px); bottom: clamp(82px, 11vh, 108px); width: min(440px, calc(100vw - 36px));
   background: var(--paper); border: 1px solid var(--ink); padding: 14px 18px 16px;
   visibility: hidden; opacity: 0;
 }
@@ -69,35 +71,80 @@ h1 em { font-style: italic; }
 #rail span { background: var(--paper); padding: 3px 8px; color: var(--ink-soft); border: 1px solid transparent; transition: color .3s, border-color .3s; cursor: pointer; }
 #rail span.on { color: var(--ink); border-color: var(--ink); }
 
+/* first-person hint & mobile joystick */
+#fp-hint {
+  position: fixed; z-index: 7; top: 72px; left: 50%; transform: translateX(-50%);
+  display: none; align-items: center; gap: 14px; font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+  white-space: nowrap; pointer-events: none;
+}
+#fp-hint.on { display: inline-flex; }
+#fp-hint.locked .fp-keys { opacity: 0.9; }
+
+#fp-joystick {
+  position: fixed; z-index: 9; left: 22px; bottom: 102px;
+  width: 96px; height: 96px; border-radius: 50%;
+  background: rgba(241, 238, 230, 0.72); border: 1.5px solid var(--ink);
+  backdrop-filter: blur(4px);
+  display: none; align-items: center; justify-content: center;
+  touch-action: none; user-select: none;
+}
+#fp-joystick.on { display: flex; }
+#fp-stick {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: var(--ink); opacity: 0.85;
+  pointer-events: none; transition: transform 0.04s linear;
+}
+
+/* measurement readout card */
+#measure-badge {
+  position: fixed; z-index: 8; top: 72px; right: clamp(16px, 3.2vw, 46px);
+  width: min(310px, calc(100vw - 32px));
+  background: var(--paper); border: 1.5px solid var(--measure);
+  padding: 12px 14px; display: none;
+  box-shadow: 0 6px 20px rgba(0, 153, 64, 0.12);
+}
+#measure-badge.on { display: block; }
+#measure-badge .m-tag { font-size: 9.5px; letter-spacing: 0.14em; color: var(--measure); font-weight: 500; margin-bottom: 4px; }
+#measure-badge .m-title { font-family: var(--serif), var(--arabic); font-size: 18px; line-height: 1.2; margin-bottom: 10px; }
+#measure-badge .m-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; border-top: 1px solid rgba(23, 23, 26, 0.15); border-bottom: 1px solid rgba(23, 23, 26, 0.15); padding: 8px 0; }
+#measure-badge .m-grid span { display: block; font-size: 9px; letter-spacing: 0.1em; color: var(--ink-soft); }
+#measure-badge .m-grid b { font-size: 12px; font-weight: 500; color: var(--measure); }
+#measure-badge .m-note { margin-top: 7px; font-size: 9.5px; line-height: 1.4; color: var(--ink-soft); }
+
 /* interactive 3D toolbar */
 #controls {
-  position: fixed; z-index: 8; bottom: clamp(14px, 2.4vh, 26px); left: 50%; transform: translateX(-50%);
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px;
-  padding: 6px 10px; max-width: calc(100vw - 24px);
+  position: fixed; z-index: 8; bottom: clamp(12px, 2.2vh, 24px); left: 50%; transform: translateX(-50%);
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px;
+  padding: 6px 10px; max-width: calc(100vw - 20px);
   box-shadow: 0 4px 18px rgba(23, 23, 26, 0.08);
 }
-.ctrl-group { display: inline-flex; align-items: center; gap: 4px; }
-.sep { width: 1px; height: 18px; background: rgba(23, 23, 26, 0.25); margin: 0 4px; }
+.ctrl-group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; justify-content: center; }
+.sep { width: 1px; height: 18px; background: rgba(23, 23, 26, 0.25); margin: 0 3px; }
 .ctrl-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-soft); margin-right: 4px; }
 
 #controls button, #controls select {
   font-family: var(--mono), var(--arabic);
-  font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase;
+  font-size: 10px; letter-spacing: 0.06em; text-transform: uppercase;
   background: transparent; color: var(--ink); border: 1px solid rgba(23, 23, 26, 0.28);
-  padding: 5px 9px; cursor: pointer; transition: background .2s, color .2s, border-color .2s;
+  padding: 5px 8px; cursor: pointer; transition: background .2s, color .2s, border-color .2s;
 }
 #controls button:hover, #controls select:hover { border-color: var(--ink); }
 #controls button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-#controls select { text-transform: none; max-width: 190px; background: var(--paper); }
+#controls button#btn-measure.on { background: var(--measure); border-color: var(--measure); color: #fff; }
+#controls select { text-transform: none; max-width: 185px; background: var(--paper); }
 
+/* preloader with texture progress bar */
 #loading {
   position: fixed; inset: 0; z-index: 20; background: var(--paper); display: grid; place-items: center;
-  font-size: 11px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-soft); transition: opacity .9s ease, visibility .9s;
+  font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-soft); transition: opacity .7s ease, visibility .7s;
 }
-#loading.done { opacity: 0; visibility: hidden; }
+#loading.done { opacity: 0; visibility: hidden; pointer-events: none; }
+.load-box { display: flex; flex-direction: column; align-items: center; gap: 12px; width: min(320px, 80vw); text-align: center; }
+.load-track { width: 100%; height: 2px; background: rgba(23, 23, 26, 0.16); overflow: hidden; }
+#loading-bar { width: 0%; height: 100%; background: var(--ink); transition: width 0.15s ease; }
 
-@media (max-width: 900px) {
-  #controls { gap: 6px; padding: 6px 8px; }
+@media (max-width: 960px) {
+  #controls { gap: 5px; padding: 6px 8px; }
   .sep { display: none; }
 }
 
@@ -114,10 +161,13 @@ h1 em { font-style: italic; }
   #hud { gap: 8px; font-size: 9px; padding: 5px 8px; letter-spacing: 0.06em; }
   #hud b { min-width: 0; }
   #rail { display: none; }
-  .cap { bottom: 98px; padding: 11px 14px; }
-  .cap .say { font-size: 17px; }
-  #controls { bottom: 10px; width: calc(100vw - 18px); }
-  #controls button, #controls select { font-size: 9.5px; padding: 4px 7px; }
+  .cap { bottom: 112px; padding: 10px 13px; }
+  .cap .say { font-size: 16px; }
+  #fp-hint { top: 54px; font-size: 8.5px; max-width: calc(100vw - 24px); white-space: normal; text-align: center; }
+  #fp-joystick { bottom: 132px; left: 14px; width: 88px; height: 88px; }
+  #measure-badge { top: 54px; right: 12px; left: 12px; width: auto; }
+  #controls { bottom: 8px; width: calc(100vw - 14px); }
+  #controls button, #controls select { font-size: 9px; padding: 4px 6px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

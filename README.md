@@ -1,29 +1,32 @@
 # Apartment Floor Plan — Interactive 3D Architectural Visualization
 
-An interactive, scroll-driven & orbit-capable 3D architectural reconstruction of the user's exact apartment floor plan, adapted directly on top of the original `casa-larga` Three.js + GSAP + Lenis rendering pipeline.
+An interactive, scroll-driven & first-person-walkable 3D architectural reconstruction of the user's exact apartment floor plan, built atop the `casa-larga` Three.js 0.170 + GSAP 3.12.5 + ScrollTrigger + Lenis 1.1.14 rendering pipeline.
 
-## Architectural Source of Truth
-- **Geometry & Room Layout**: Reconstructed directly from [`assets/references/reference-a1-detailed-plan.jpg`](assets/references/reference-a1-detailed-plan.jpg) (`10.00 × 17.00 m` outer envelope) and [`assets/references/reference-a2-room-dimensions.jpg`](assets/references/reference-a2-room-dimensions.jpg) (`9.00 × 14.50 m` modular grid), preserving every external wall, interior partition, door opening and swing direction, exterior window bay, central core shaft/baths (`صالة` / `حمام`), U-shaped kitchen (`مطبخ`), reception & dining (`استقبال`), master suite (`ماستر` + `دريسنج` + `حمام`), bedrooms 1–3 (`نوم ١–٣`), services (`خدمات / لفتح`), and both curved front balconies with potted palms.
-- **Configurable Assumptions (`CONFIG` in `js/plan.js`)**:
-  - Clear wall height: `3.00 m`
-  - Ceiling slab thickness: `0.24 m`
-  - Exterior wall thickness: `0.20 m`, interior partition thickness: `0.12 m`
-  - Standard door leaf height: `2.20 m`
-  - Standard window sill / head: `0.90 m – 2.35 m` (bathroom windows: `1.45 m – 2.25 m`)
-  - Curved balcony masonry curb: `0.42 m`, bronze railing height: `1.05 m`
+## Architectural & Material Sources
+- **Floor Plan Geometry (`assets/references/`)**:
+  - [`reference-a1-detailed-plan.jpg`](assets/references/reference-a1-detailed-plan.jpg) (`10.00 × 17.00 m*` outer envelope)
+  - [`reference-a2-room-dimensions.jpg`](assets/references/reference-a2-room-dimensions.jpg) (`9.00 × 14.50 m` modular room grid)
+  - [`reference-bathroom-closeup.jpg`](assets/references/reference-bathroom-closeup.jpg) (continuous Central Bathroom with vanity, WC, and frameless glass shower screen — no internal dividing masonry wall)
+- **Building Entrance Finishes (`assets/references/`)**:
+  - [`reference-b-entrance-interior.jpg`](assets/references/reference-b-entrance-interior.jpg) (polished speckled stone/cream marble, dark Galaxy Black granite trim/borders, warm off-white plaster, dark-rimmed recessed downlights, rich walnut paneled door)
+  - [`reference-c-entrance-exterior.jpg`](assets/references/reference-c-entrance-exterior.jpg) (warm golden-ochre rusticated facade stucco, dressed Hashmi limestone trim, dark granite plinth, wrought-iron dark bronze metalwork)
+- **AI Material Reference Renders (`assets/references/generated/`)**: 4 material-only visualization studies (`01-reception-balconies.jpg`, `02-kitchen-corridor.jpg`, `03-master-dressing.jpg`, `04-central-bathroom.jpg`) used strictly to calibrate PBR surface roughness, warmth, and lighting.
+- **PBR Texture Maps (`assets/textures/`)**: 12 CC0 scans from [Poly Haven](https://polyhaven.com) (`marble_01`, `plastered_wall`, `white_oak_veneer`, `brown_leather`) combined with procedural architectural tile-joint, dark granite, and rusticated stucco maps.
 
-## Materials & Licenses
-- **Poly Haven CC0 Scans (`assets/textures/`)**:
-  - `marble_01` (2K diffuse/normal, 1K rough) — honed cream marble flooring in Reception/Corridors, dark granite kitchen worktops, and porcelain kitchen tiles (with procedural tile-joint normal map).
-  - `plastered_wall` (1K maps) — architectural lime-plaster walls, honed travertine accents, bathroom ceramic tiles, and balcony paving.
-  - `white_oak_veneer` (2K diffuse, 1K normal/rough) — bedroom & dressing oak parquet, interior doors, cabinetry, dining table, and wardrobes.
-  - `brown_leather` (1K maps) — cognac leather dining chairs and lounge accent chair.
-- All downloaded/bundled PBR textures from [Poly Haven](https://polyhaven.com) are **CC0 (Public Domain)**.
-- Note: Building entrance photographs (References B & C) were not supplied alongside the two floor plan references, so a cohesive warm limestone-plaster, honed cream marble, natural oak veneer, and dark bronze architectural palette was selected and documented in `js/materials.js`.
+## Implemented Features
+- **Viewing Modes**: `Sheet`, `Scroll Tour` (smooth bidirectional forward & reverse GSAP/Lenis sync), `Isometric`, `3D Orbit`, `Top Plan`, and **`First Person`**.
+- **First-Person Walkthrough (`js/walk.js`)**:
+  - Configurable human eye height (`1.60 m*`).
+  - Desktop `WASD` / Arrow movement + Pointer Lock (double-click canvas, `ESC` to exit) + click-drag look fallback.
+  - Mobile on-screen virtual joystick (`#fp-joystick`) + touch-drag look controls.
+  - Sub-stepped circle-vs-AABB collision detection (`CollisionWorld`) with smooth wall sliding, walkable doorway cutouts, curved balcony containment, and furniture/fixture collision.
+- **Room-Bounded Inspection**: Selecting a room focuses inside that room and constrains `3D Orbit` rotation and target inside the room's actual bounds (no escaping through walls).
+- **Interactive Wall Measurement Tool (`js/measure.js`)**: Toggle `Measure` and click any wall to render 3D green dimension arrows (horizontal length + vertical height `3.00 m*` + thickness) and inspect verified vs modeled vs assumed* values.
+- **Preloaded Materials & Shaders**: All textures load with progress bar (`#loading-bar`) and GPU shader pre-compilation before interactive navigation starts.
 
-## Interactive Features
-- **Scroll Tour**: Seamless 2° top-down `+1.20 m` architectural blueprint transitioning into rising walls, curved balcony approach, and eye-height room-by-room PBR material reveal.
-- **3D Orbit / Isometric / Top Plan**: Switch anytime via the bottom control bar, inspect individual rooms with **Room Focus**, toggle the ceiling slab (**Ceiling ON/OFF**), switch **Auto / Full PBR / Ink Plan** rendering, and toggle **9.0×14.5m / 10.0×17.0m** sheet dimensions.
+## Configurable Assumptions (`CONFIG` in `js/plan.js`)
+Unverified vertical and wall thickness values are clearly marked with `*`:
+- `eyeHeight: 1.60 m*`, `wallHeight: 3.00 m*`, `ceilingThickness: 0.24 m*`, `extWallT: 0.20 m*`, `intWallT: 0.12 m*`, `doorHeight: 2.20 m*`.
 
 ## Local Preview
 Plain static ES modules (no build step required):

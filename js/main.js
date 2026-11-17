@@ -10,6 +10,8 @@ import { CUT, SWEEP_PLANES, setRoomReveal, setAllRoomsReveal, makeMaterials, tex
 import { buildHouse } from './house.js';
 import { buildSheet } from './sheet.js';
 import { makeRig } from './rig.js';
+import { CollisionWorld, FirstPersonController } from './walk.js';
+import { createMeasureTool } from './measure.js';
 
 const params = new URLSearchParams(location.search);
 const CAPTURE = params.has('capture');
@@ -26,7 +28,7 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
 renderer.setSize(window.innerWidth, window.innerHeight, false);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.02;
+renderer.toneMappingExposure = 0.94;
 renderer.localClippingEnabled = true;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -37,7 +39,7 @@ const scene = new THREE.Scene();
 scene.background = new THREE.Color(PAPER);
 scene.fog = new THREE.Fog(new THREE.Color(PAPER), 4000, 9000);
 scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
-scene.environmentIntensity = 0.34;
+scene.environmentIntensity = 0.50;
 
 const camera = new THREE.PerspectiveCamera(2, window.innerWidth / window.innerHeight, 1, 5000);
 camera.rotation.order = 'YXZ';
@@ -46,7 +48,7 @@ const controls = new OrbitControls(camera, canvas);
 controls.enableDamping = true;
 controls.dampingFactor = 0.08;
 controls.maxPolarAngle = Math.PI * 0.485;
-controls.minDistance = 1.8;
+controls.minDistance = 1.6;
 controls.maxDistance = 58;
 controls.target.set(0, 0.8, -6.5);
 controls.enabled = false;
@@ -102,25 +104,28 @@ function lines(kind, room, positions) {
 }
 
 // ---------------------------------------------------------------------------
-// apartment 3D geometry
+// apartment 3D geometry & subsystems
 // ---------------------------------------------------------------------------
 const M = makeMaterials();
 const H = buildHouse();
 const house = new THREE.Group();
 const roofGroup = new THREE.Group();
+const shellMeshes = [];
 scene.add(house);
 house.add(roofGroup);
 
-const solid = (geo, mat, parent = house, shadows = true) => {
+const solid = (geo, mat, parent = house, shadows = true, isShell = false) => {
   const m = new THREE.Mesh(geo, mat);
   m.castShadow = shadows;
   m.receiveShadow = shadows;
+  m.frustumCulled = false; // ensures GPU shaders & textures warm up before entering any room
   parent.add(m);
+  if (isShell) shellMeshes.push(m);
   return m;
 };
 
-for (const key in H.shell.geos) solid(H.shell.geos[key], M[key], house, true);
-for (const key in H.roof.geos) solid(H.roof.geos[key], key === 'ceiling' ? M.ceiling : M.plaster, roofGroup, true);
+for (const key in H.shell.geos) solid(H.shell.geos[key], M[key], house, true, true);
+for (const key in H.roof.geos) solid(H.roof.geos[key], key === 'ceiling' ? M.ceiling : M.facadePlaster, roofGroup, true);
 for (const key in H.kit.b) {
   const mat = key.split('|')[1];
   const mesh = solid(H.bucketToGeometry(H.kit.b[key]), M[mat], house, mat !== 'glass' && mat !== 'lamp');
@@ -130,6 +135,10 @@ for (const room in H.shell.edges) house.add(lines('structure', room, H.shell.edg
 for (const room in H.roof.edges) roofGroup.add(lines('structure', room, H.roof.edges[room]));
 for (const room in H.kit.e) house.add(lines('furniture', room, H.kit.e[room]));
 
+const collisionWorld = new CollisionWorld(H.wallSegments, H.doorCarves, H.obstacles);
+const fpController = new FirstPersonController(camera, canvas, collisionWorld);
+const measureTool = createMeasureTool(scene, camera, canvas, shellMeshes, H.wallSegments);
+
 // Soft contact shadows under key furniture
 const contact = (x0, n0, x1, n1, y, strength) => {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, n1 - n0), contactShadowMaterial(strength));
@@ -138,21 +147,21 @@ const contact = (x0, n0, x1, n1, y, strength) => {
   m.renderOrder = 2;
   house.add(m);
 };
-contact(-4.25, 0.85, -3.40, 2.82, 0.021, 0.45); // West sofa
-contact(-2.10, 0.90, -1.28, 2.80, 0.021, 0.45); // East sofa
-contact(-3.10, 1.30, -2.40, 2.40, 0.021, 0.42); // Coffee table
-contact(-0.58, 0.35, 0.98, 3.25, 0.008, 0.38);  // Dining group
-contact(2.65, 1.30, 4.35, 2.90, 0.008, 0.45);   // Front-Right bed
-contact(2.40, 3.78, 4.08, 5.42, 0.008, 0.45);   // Master bed
-contact(-1.35, 12.10, 0.18, 13.50, 0.008, 0.45); // Bedroom 1 bed
-contact(2.60, 11.70, 4.35, 13.28, 0.008, 0.45); // Bedroom 2 bed
+contact(-4.25, 0.85, -3.40, 2.82, 0.021, 0.45);
+contact(-2.10, 0.90, -1.28, 2.80, 0.021, 0.45);
+contact(-3.10, 1.30, -2.40, 2.40, 0.021, 0.42);
+contact(-0.58, 0.35, 0.98, 3.25, 0.008, 0.38);
+contact(2.65, 1.30, 4.35, 2.90, 0.008, 0.45);
+contact(2.40, 3.78, 4.08, 5.42, 0.008, 0.45);
+contact(-1.35, 12.10, 0.18, 13.50, 0.008, 0.45);
+contact(2.60, 11.70, 4.35, 13.28, 0.008, 0.45);
 
 // ---------------------------------------------------------------------------
-// lighting: late-afternoon daylight + interior architectural bounce
+// lighting: natural late-afternoon sun + balanced 3500K interior fill
 // ---------------------------------------------------------------------------
 const el = (SUN_ELEV * Math.PI) / 180;
 const sunDir = new THREE.Vector3(SUN_HEADING[0] * Math.cos(el), -Math.sin(el), SUN_HEADING[1] * Math.cos(el)).normalize();
-const sun = new THREE.DirectionalLight(0xffdfb8, 7.2);
+const sun = new THREE.DirectionalLight(0xffdfb8, 5.8);
 sun.target.position.set(0, 0.8, -6.5);
 sun.position.copy(sun.target.position).addScaledVector(sunDir, -60);
 sun.castShadow = true;
@@ -162,18 +171,19 @@ sun.shadow.bias = -0.00025;
 sun.shadow.normalBias = 0.015;
 scene.add(sun, sun.target);
 
-scene.add(new THREE.HemisphereLight(0xf1f5fc, 0xd8ccb8, 0.95));
+scene.add(new THREE.HemisphereLight(0xf1f5fc, 0xd4c6b0, 0.85));
 
 const interiorLights = [
-  [0xffe6c4, 4.8, 10, -2.5, 2.4, -1.9],  // Reception
-  [0xffe6c4, 4.2, 10, 0.3, 2.4, -1.9],   // Dining
-  [0xfff0dc, 3.8, 8, 3.0, 2.4, -1.9],    // Front bedroom
-  [0xf3f7ff, 4.0, 9, -3.2, 2.4, -7.4],   // Kitchen
-  [0xffe6c4, 3.5, 9, -1.45, 2.4, -7.2],  // West corridor
-  [0xffe6c4, 3.8, 9, 3.1, 2.4, -5.0],    // Master
-  [0xf5f8ff, 3.5, 9, 0.0, 2.4, -12.8],   // Bedroom 1
-  [0xf5f8ff, 3.5, 9, 3.0, 2.4, -12.4],   // Bedroom 2
-  [0xf5f8ff, 3.5, 9, -2.9, 2.4, -12.2],  // Services
+  [0xffe6c4, 4.0, 10, -2.5, 2.45, -1.9],
+  [0xffe6c4, 3.8, 10, 0.3, 2.45, -1.9],
+  [0xffeed8, 3.4, 8, 3.0, 2.45, -1.9],
+  [0xf6f8ff, 3.6, 9, -3.2, 2.45, -7.4],
+  [0xffe6c4, 3.2, 9, -1.45, 2.45, -7.2],
+  [0xffeed8, 3.0, 8, 0.0, 2.45, -6.2],
+  [0xffe6c4, 3.4, 9, 3.1, 2.45, -5.0],
+  [0xf5f8ff, 3.2, 9, 0.0, 2.45, -12.8],
+  [0xf5f8ff, 3.2, 9, 3.0, 2.45, -12.4],
+  [0xf5f8ff, 3.2, 9, -2.9, 2.45, -12.2],
 ];
 for (const [col, inten, dist, lx, ly, lz] of interiorLights) {
   const pl = new THREE.PointLight(col, inten, dist, 2);
@@ -223,17 +233,20 @@ function layout() {
   renderer.setSize(w, h, false);
   camera.aspect = w / h;
   camera.updateProjectionMatrix();
+  measureTool.resize(w, h);
   rig = makeRig(w / h);
   rebuildSheet();
 }
 
 // ---------------------------------------------------------------------------
-// state & interactive modes
+// single-owner camera state machine & room containment
 // ---------------------------------------------------------------------------
-let viewMode = 'tour';     // 'tour' | 'orbit' | 'iso' | 'top'
+let viewMode = 'tour';     // 'sheet' | 'tour' | 'iso' | 'orbit' | 'top' | 'fp'
+let activeRoomKey = 'all';
 let finishMode = 'auto';   // 'auto' | 'pbr' | 'ink'
 let ceilingVisible = true;
 let lenis = null;
+let scrollTriggerInst = null;
 
 const hud = {
   lens: document.getElementById('hud-lens'),
@@ -242,6 +255,8 @@ const hud = {
 };
 const rail = [...document.querySelectorAll('#rail span')];
 const grain = document.getElementById('grain');
+const fpHint = document.getElementById('fp-hint');
+const fpJoystick = document.getElementById('fp-joystick');
 const sp = (v) => Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 let last = null;
 
@@ -253,7 +268,7 @@ function applyFinish(oTour = null) {
     setAllRoomsReveal(0);
     grain.style.opacity = '0.5';
   } else {
-    if (viewMode === 'tour' && oTour) {
+    if ((viewMode === 'tour' || viewMode === 'sheet') && oTour) {
       for (const r of ROOMS) setRoomReveal(r.key, oTour.reveals[r.key] ?? 0);
       const rec = oTour.reveals.reception ?? 0;
       grain.style.opacity = (0.5 * (1 - rec)).toFixed(3);
@@ -301,10 +316,28 @@ function drawTour(s) {
   on.classList.add('on');
 }
 
+function clampRoomOrbit() {
+  if (activeRoomKey === 'all' || viewMode !== 'orbit') return;
+  const rm = ROOMS.find((r) => r.key === activeRoomKey);
+  if (!rm || !rm.bounds) return;
+  const b = rm.bounds;
+  const zMin = -b.n1;
+  const zMax = -b.n0;
+  controls.target.x = Math.max(b.x0 + 0.15, Math.min(b.x1 - 0.15, controls.target.x));
+  controls.target.z = Math.max(zMin + 0.15, Math.min(zMax - 0.15, controls.target.z));
+  controls.target.y = Math.max(0.35, Math.min(CONFIG.wallHeight - 0.45, controls.target.y));
+
+  camera.position.x = Math.max(b.x0 + 0.08, Math.min(b.x1 - 0.08, camera.position.x));
+  camera.position.z = Math.max(zMin + 0.08, Math.min(zMax - 0.08, camera.position.z));
+  camera.position.y = Math.max(0.45, Math.min(CONFIG.wallHeight - 0.15, camera.position.y));
+}
+
 function syncUI() {
   document.querySelectorAll('#mode-btns button').forEach((b) => {
     b.classList.toggle('on', b.dataset.mode === viewMode);
   });
+  document.getElementById('btn-measure').classList.toggle('on', measureTool.isActive());
+
   const btnCeil = document.getElementById('btn-ceiling');
   btnCeil.textContent = ceilingVisible ? 'Ceiling: ON' : 'Ceiling: OFF';
   btnCeil.classList.toggle('on', !ceilingVisible);
@@ -315,55 +348,114 @@ function syncUI() {
   btnFin.classList.toggle('on', finishMode !== 'auto');
 
   const btnScale = document.getElementById('btn-scale');
-  btnScale.textContent = dimensionsMode === 'A1' ? 'Grid: 10.0×17.0m' : 'Grid: 9.0×14.5m';
+  btnScale.textContent = dimensionsMode === 'A1' ? 'Grid: 10.0×17.0m*' : 'Grid: 9.0×14.5m';
   btnScale.classList.toggle('on', dimensionsMode === 'A1');
+
+  const isFp = viewMode === 'fp';
+  if (fpHint) fpHint.classList.toggle('on', isFp);
+  if (fpJoystick) fpJoystick.classList.toggle('on', isFp);
+  document.body.classList.toggle('mode-locked', viewMode !== 'tour' && viewMode !== 'sheet');
 }
 
-function animateCameraTo(pos, target, fov) {
+function killCameraTweens() {
   gsap.killTweensOf(camera.position);
   gsap.killTweensOf(controls.target);
   gsap.killTweensOf(camera);
-  gsap.to(camera.position, { x: pos[0], y: pos[1], z: pos[2], duration: 0.85, ease: 'power3.out' });
-  gsap.to(controls.target, { x: target[0], y: target[1], z: target[2], duration: 0.85, ease: 'power3.out' });
+}
+
+function animateCameraTo(pos, target, fov) {
+  killCameraTweens();
+  gsap.to(camera.position, { x: pos[0], y: pos[1], z: pos[2], duration: 0.75, ease: 'power3.out' });
+  gsap.to(controls.target, { x: target[0], y: target[1], z: target[2], duration: 0.75, ease: 'power3.out' });
   gsap.to(camera, {
     fov,
-    duration: 0.85,
+    duration: 0.75,
     ease: 'power3.out',
-    onUpdate: () => { camera.updateProjectionMatrix(); if (CAPTURE) tick(); },
-    onComplete: () => { if (CAPTURE) tick(); },
+    onUpdate: () => {
+      camera.updateProjectionMatrix();
+      if (CAPTURE) tick();
+    },
+    onComplete: () => {
+      if (CAPTURE) tick();
+    },
   });
 }
 
 function setMode(mode) {
+  killCameraTweens();
+  fpController.disable();
   viewMode = mode;
-  if (mode === 'tour') {
+
+  if (mode === 'sheet' || mode === 'tour') {
     controls.enabled = false;
+    activeRoomKey = 'all';
+    const sel = document.getElementById('focus-room');
+    if (sel) sel.value = 'all';
     ceilingVisible = true;
     document.querySelectorAll('.overlay').forEach((el) => (el.style.display = ''));
     document.getElementById('rail').style.display = '';
     if (lenis) lenis.start();
+    if (mode === 'sheet') {
+      if (lenis) lenis.scrollTo(0, { immediate: true });
+      window.scrollTo(0, 0);
+      proxy.s = 0;
+      tl.progress(0);
+    } else if (scrollTriggerInst) {
+      proxy.s = scrollTriggerInst.progress;
+      tl.progress(proxy.s);
+    }
     drawn = -1;
     drawTour(proxy.s);
+  } else if (mode === 'fp') {
+    if (lenis) lenis.stop();
+    controls.enabled = false;
+    document.querySelectorAll('.overlay').forEach((el) => (el.style.display = 'none'));
+    document.getElementById('rail').style.display = 'none';
+    ceilingVisible = true;
+    roofGroup.visible = true;
+    CUT.constant = CUT_OPEN;
+    scene.fog.near = 60;
+    scene.fog.far = 220;
+    applyFinish();
+    fpController.enable(activeRoomKey);
+    renderer.render(scene, camera);
+    updateHud(camera.fov, camera.position.y, CUT.constant);
   } else {
     if (lenis) lenis.stop();
     document.querySelectorAll('.overlay').forEach((el) => (el.style.display = 'none'));
     document.getElementById('rail').style.display = 'none';
     controls.enabled = true;
-    camera.near = 0.15;
+    camera.near = 0.12;
     camera.far = 500;
     scene.fog.near = 180;
     scene.fog.far = 420;
 
     if (mode === 'orbit') {
-      ceilingVisible = false;
-      CUT.constant = CUT_OPEN;
-      animateCameraTo([-9.5, 10.5, 5.5], [0.0, 0.8, -6.2], 46);
+      if (activeRoomKey === 'all') {
+        ceilingVisible = false;
+        controls.minDistance = 1.6;
+        controls.maxDistance = 58;
+        controls.maxPolarAngle = Math.PI * 0.485;
+        CUT.constant = CUT_OPEN;
+        animateCameraTo([-9.5, 10.5, 5.5], [0.0, 0.8, -6.2], 46);
+      } else {
+        focusRoom(activeRoomKey);
+        return;
+      }
     } else if (mode === 'iso') {
+      activeRoomKey = 'all';
       ceilingVisible = false;
+      controls.minDistance = 4;
+      controls.maxDistance = 58;
+      controls.maxPolarAngle = Math.PI * 0.485;
       CUT.constant = CUT_OPEN;
       animateCameraTo([-17.5, 16.5, 12.0], [0.0, 0.8, -6.2], 24);
     } else if (mode === 'top') {
+      activeRoomKey = 'all';
       ceilingVisible = false;
+      controls.minDistance = 8;
+      controls.maxDistance = 90;
+      controls.maxPolarAngle = Math.PI * 0.485;
       CUT.constant = finishMode === 'pbr' ? CUT_OPEN : CUT_PLAN;
       animateCameraTo([0.0, 56.0, -6.01], [0.0, 0.0, -6.0], 21);
     }
@@ -374,18 +466,39 @@ function setMode(mode) {
 }
 
 function focusRoom(key) {
+  activeRoomKey = key;
   if (key === 'all') {
-    setMode(viewMode === 'tour' ? 'orbit' : viewMode);
+    setMode(viewMode === 'tour' || viewMode === 'sheet' ? 'orbit' : viewMode);
     return;
   }
   const rm = ROOMS.find((r) => r.key === key);
   if (!rm || !rm.focus) return;
-  if (viewMode !== 'orbit') setMode('orbit');
-  ceilingVisible = false;
-  roofGroup.visible = false;
+
+  if (viewMode === 'fp') {
+    fpController.spawnInRoom(key);
+    renderer.render(scene, camera);
+    syncUI();
+    return;
+  }
+
+  viewMode = 'orbit';
+  fpController.disable();
+  if (lenis) lenis.stop();
+  document.querySelectorAll('.overlay').forEach((el) => (el.style.display = 'none'));
+  document.getElementById('rail').style.display = 'none';
+  controls.enabled = true;
+  controls.minDistance = 0.45;
+  controls.maxDistance = 4.2;
+  controls.maxPolarAngle = Math.PI * 0.62;
+  camera.near = 0.08;
+  camera.far = 160;
+  scene.fog.near = 80;
+  scene.fog.far = 220;
+  ceilingVisible = true;
+  roofGroup.visible = true;
   CUT.constant = CUT_OPEN;
   applyFinish();
-  animateCameraTo(rm.focus.pos, rm.focus.target, 54);
+  animateCameraTo(rm.focus.pos, rm.focus.target, 58);
   syncUI();
 }
 
@@ -406,14 +519,26 @@ cap('#cap-core', 0.56, 0.74);
 cap('#cap-suite', 0.80, null);
 
 let drawn = -1;
+let prevTime = performance.now();
 function tick() {
-  if (viewMode === 'tour') {
+  const now = performance.now();
+  const dt = (now - prevTime) / 1000;
+  prevTime = now;
+
+  if (viewMode === 'tour' || viewMode === 'sheet') {
     if (proxy.s !== drawn) {
       drawn = proxy.s;
       drawTour(drawn);
     }
+  } else if (viewMode === 'fp') {
+    fpController.step(dt);
+    roofGroup.visible = ceilingVisible;
+    CUT.constant = CUT_OPEN;
+    renderer.render(scene, camera);
+    updateHud(camera.fov, camera.position.y, CUT.constant);
   } else {
     controls.update();
+    clampRoomOrbit();
     if (viewMode === 'top') {
       CUT.constant = ceilingVisible ? CUT_PLAN : finishMode === 'pbr' ? CUT_OPEN : CUT_PLAN;
     } else {
@@ -439,10 +564,18 @@ function wireControls() {
   }
   sel.addEventListener('change', (e) => focusRoom(e.target.value));
 
+  document.getElementById('btn-measure').addEventListener('click', () => {
+    measureTool.setActive(!measureTool.isActive());
+    if (measureTool.isActive() && (viewMode === 'tour' || viewMode === 'sheet') && proxy.s < 0.05) {
+      setMode('iso');
+    }
+    syncUI();
+  });
+
   document.getElementById('btn-ceiling').addEventListener('click', () => {
     ceilingVisible = !ceilingVisible;
     roofGroup.visible = ceilingVisible;
-    if (viewMode === 'tour') {
+    if (viewMode === 'tour' || viewMode === 'sheet') {
       drawn = -1;
       drawTour(proxy.s);
     }
@@ -453,7 +586,7 @@ function wireControls() {
   document.getElementById('btn-finish').addEventListener('click', () => {
     const order = ['auto', 'pbr', 'ink'];
     finishMode = order[(order.indexOf(finishMode) + 1) % order.length];
-    applyFinish(viewMode === 'tour' ? rig.at(proxy.s) : null);
+    applyFinish(viewMode === 'tour' || viewMode === 'sheet' ? rig.at(proxy.s) : null);
     syncUI();
   });
 
@@ -465,10 +598,10 @@ function wireControls() {
 
   rail.forEach((span) => {
     span.addEventListener('click', () => {
-      if (viewMode !== 'tour') setMode('tour');
+      if (viewMode !== 'tour' && viewMode !== 'sheet') setMode('tour');
       const targetS = parseFloat(span.dataset.at || '0');
       const max = document.documentElement.scrollHeight - window.innerHeight;
-      if (lenis) lenis.scrollTo(targetS * max, { duration: 1.2 });
+      if (lenis) lenis.scrollTo(targetS * max, { duration: 1.1 });
       else window.scrollTo(0, targetS * max);
     });
   });
@@ -477,6 +610,9 @@ function wireControls() {
 }
 
 async function boot() {
+  const bar = document.getElementById('loading-bar');
+  const pct = document.getElementById('loading-pct');
+
   await Promise.race([
     Promise.all([
       document.fonts.load('400 20px "IBM Plex Mono"'),
@@ -488,9 +624,23 @@ async function boot() {
     ]),
     new Promise((r) => setTimeout(r, 3000)),
   ]);
-  await texturesReady();
+
+  await texturesReady((ratio) => {
+    const p = Math.round(ratio * 100);
+    if (bar) bar.style.width = `${p}%`;
+    if (pct) pct.textContent = `${p}%`;
+  });
+
   layout();
   for (const m of Object.values(M)) m.needsUpdate = true;
+
+  // GPU Pre-Warmup: compile all room PBR + shader programs before interaction starts
+  setAllRoomsReveal(1);
+  CUT.constant = CUT_OPEN;
+  renderer.shadowMap.needsUpdate = true;
+  renderer.compile(scene, camera);
+  renderer.render(scene, camera);
+
   wireControls();
   drawTour(0);
 
@@ -510,7 +660,13 @@ async function boot() {
     lenis.on('scroll', ScrollTrigger.update);
     gsap.ticker.add((t) => lenis.raf(t * 1000));
     gsap.ticker.lagSmoothing(0);
-    ScrollTrigger.create({ trigger: '#track', start: 'top top', end: 'bottom bottom', scrub: 0.8, animation: tl });
+    scrollTriggerInst = ScrollTrigger.create({
+      trigger: '#track',
+      start: 'top top',
+      end: 'bottom bottom',
+      scrub: true,
+      animation: tl,
+    });
     gsap.ticker.add(tick);
     gsap.from('#hero h1 .l > span', { yPercent: 105, duration: 1.3, ease: 'expo.out', stagger: 0.12, delay: 0.25 });
     gsap.from('#hero .eyebrow, #hero .lede, #hero .cue, #bar', { autoAlpha: 0, y: 12, duration: 1, ease: 'power2.out', stagger: 0.08, delay: 0.6 });
@@ -530,9 +686,12 @@ async function boot() {
     fov: camera.fov,
     cut: CUT.constant,
     viewMode,
+    activeRoomKey,
     finishMode,
     ceilingVisible,
     dimensionsMode,
+    measuring: measureTool.isActive(),
+    selectedWall: measureTool.getSelected()?.label || null,
     errors: errors.length,
     calls: renderer.info.render.calls,
     tris: renderer.info.render.triangles,
@@ -540,6 +699,9 @@ async function boot() {
   window.__draw = drawTour;
   window.__setMode = setMode;
   window.__focusRoom = focusRoom;
+  window.__fp = fpController;
+  window.__measure = measureTool;
+  window.__tick = tick;
 
   const loading = document.getElementById('loading');
   if (CAPTURE) loading.style.transition = 'none';

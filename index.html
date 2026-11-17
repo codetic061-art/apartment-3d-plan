@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>شقة سكنية · Architectural Floor Plan in 3D</title>
-  <meta name="description" content="Exact 3D architectural reconstruction of the apartment floor plan — Reception, Curved Balconies, Kitchen, Central Core, Master Suite & Bedrooms.">
+  <meta name="description" content="Exact 3D architectural reconstruction of the apartment floor plan — Reception, Curved Balconies, Kitchen, Central Core, Master Suite, First-Person Walkthrough & Wall Measurement.">
   <link rel="icon" href="data:,">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -28,15 +28,15 @@
     <span class="mark">Apartment Plan <span class="ar-mark">· شقة سكنية</span></span>
     <span id="hud" class="chip" aria-hidden="true">
       <span>LENS <b id="hud-lens">2.0°</b></span>
-      <span>HEIGHT <b id="hud-height">670 m</b></span>
+      <span>HEIGHT <b id="hud-height">673 m</b></span>
       <span>CUT <b id="hud-cut">+1.20 m</b></span>
     </span>
   </header>
 
   <section id="hero" class="overlay">
-    <p class="eyebrow">Architectural Sheet A-101 <span class="wide">&nbsp;·&nbsp; 9.00 × 14.50 m / 10.00 × 17.00 m</span></p>
+    <p class="eyebrow">Architectural Sheet A-101 <span class="wide">&nbsp;·&nbsp; 9.00 × 14.50 m Modular Grid</span></p>
     <h1><span class="l"><span>Your plan,</span></span><span class="l"><span>in <em>true 3D.</em></span></span></h1>
-    <p class="lede"><span class="wide">Curved front balconies, reception, central hall, kitchen, master suite, and three bedrooms. </span>Scroll to raise the walls and walk inside, or switch to Orbit &amp; Isometric inspection.</p>
+    <p class="lede"><span class="wide">Curved front balconies, reception, central hall, kitchen, master suite, and three bedrooms. </span>Scroll to raise the walls and walk inside, or enter First-Person mode.</p>
     <p class="cue"><i></i> Scroll</p>
   </section>
 
@@ -52,7 +52,7 @@
 
   <aside id="cap-core" class="overlay cap">
     <p class="no">04 &nbsp; Kitchen &amp; Central Core · مطبخ وصالة</p>
-    <p class="say">Through the corridor past the guest bath, U-shaped kitchen (مطبخ), and central hall (صالة).</p>
+    <p class="say">Through the corridor past the guest bath, U-shaped kitchen (مطبخ), and continuous central bath (حمام).</p>
   </aside>
 
   <aside id="cap-suite" class="overlay cap">
@@ -68,12 +68,37 @@
     <span data-at="0.78">05 Bedrooms</span>
   </nav>
 
+  <!-- First-person HUD & Mobile Virtual Joystick -->
+  <div id="fp-hint" class="chip" aria-hidden="true">
+    <span>FIRST PERSON · EYE <b id="fp-eye">1.60 m*</b></span>
+    <span class="fp-keys">WASD / Arrows Move · Drag or Double-Click Look · ESC Unlock</span>
+  </div>
+
+  <div id="fp-joystick" aria-label="Walkthrough Movement Joystick">
+    <div id="fp-stick"></div>
+  </div>
+
+  <!-- Interactive Wall Measurement Readout -->
+  <aside id="measure-badge" aria-live="polite">
+    <p class="m-tag">MEASURE / DIMENSIONS</p>
+    <p id="measure-wall-title" class="m-title">Select any wall to measure</p>
+    <div class="m-grid">
+      <div><span>LENGTH</span><b id="measure-wall-len">—</b></div>
+      <div><span>HEIGHT*</span><b id="measure-wall-height">3.00 m*</b></div>
+      <div><span>THICKNESS*</span><b id="measure-wall-thick">—</b></div>
+    </div>
+    <p id="measure-wall-note" class="m-note">*Assumed visualization defaults.</p>
+  </aside>
+
+  <!-- Primary View & Tool Bar -->
   <div id="controls" class="chip" role="toolbar" aria-label="3D Architectural Controls">
     <div class="ctrl-group" id="mode-btns">
+      <button type="button" data-mode="sheet">Sheet</button>
       <button type="button" data-mode="tour" class="on">Scroll Tour</button>
-      <button type="button" data-mode="orbit">3D Orbit</button>
       <button type="button" data-mode="iso">Isometric</button>
+      <button type="button" data-mode="orbit">3D Orbit</button>
       <button type="button" data-mode="top">Top Plan</button>
+      <button type="button" data-mode="fp">First Person</button>
     </div>
     <span class="sep" aria-hidden="true"></span>
     <div class="ctrl-group">
@@ -84,13 +109,20 @@
     </div>
     <span class="sep" aria-hidden="true"></span>
     <div class="ctrl-group">
+      <button type="button" id="btn-measure">Measure</button>
       <button type="button" id="btn-ceiling">Ceiling: ON</button>
       <button type="button" id="btn-finish">Finish: Auto</button>
       <button type="button" id="btn-scale">Grid: 9.0×14.5m</button>
     </div>
   </div>
 
-  <div id="loading"><span>Drafting apartment plan</span></div>
+  <div id="loading">
+    <div class="load-box">
+      <span id="loading-label">Loading architectural textures &amp; shaders</span>
+      <div class="load-track"><div id="loading-bar"></div></div>
+      <span id="loading-pct">0%</span>
+    </div>
+  </div>
 
   <main id="track"></main>
 
