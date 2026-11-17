@@ -1,10 +1,23 @@
-// Apartment 3D Architectural Model
-// Constructed directly from Reference A1/A2 and the close-up bathroom reference
-// in plan coordinates (x east, n north -> z = -n).
+// Apartment 3D Architectural Model (Unified 10.00 x 17.00 m A1 Specification)
+// Built with exact RectSolid CSG cuts, continuous central bath & سلم staircase,
+// curved front balconies, recessed bay windows, and multi-part geometry via furniture.js.
 
 import * as THREE from 'three';
 import { RectSolid, pushBox, bucketToGeometry } from './solid.js';
-import { ROOMS, BASE_Y, CONFIG, BALCONIES, PLANTS, DOORS } from './plan.js';
+import { ROOMS, BASE_Y, CONFIG, BALCONIES, PLANTS } from './plan.js';
+import {
+  placeGeo,
+  addSofa,
+  addCoffeeTable,
+  addDiningSet,
+  addBedSuite,
+  addWardrobe,
+  addKitchenSuite,
+  addToilet,
+  addVanityBasin,
+  addShowerAssembly,
+  addStaircase,
+} from './furniture.js';
 
 const roomAt = (x, n, y = 0) => {
   for (const r of ROOMS) {
@@ -58,17 +71,6 @@ class Kit {
   }
 }
 
-const place = (g, x, y, n, ry = 0, sx = 1, sy = 1, sz = 1) => {
-  g.applyMatrix4(
-    new THREE.Matrix4().compose(
-      new THREE.Vector3(x, y, -n),
-      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), ry),
-      new THREE.Vector3(sx, sy, sz)
-    )
-  );
-  return g;
-};
-
 function pushQuad(B, a, b, c, d, nVec) {
   const base = B.p.length / 3;
   for (const v of [a, b, c, d]) {
@@ -84,19 +86,17 @@ function buildEllipticalDeck(K, room, topMat, sideMat, cx, cn, rx, rn, a0, a1, y
   const Btop = K.bucket(room, topMat);
   const Bside = K.bucket(room, sideMat);
   const E = K.edges(room);
-
-  const pt = (a, rScale = 1) => [cx + rx * rScale * Math.cos(a), cn + rn * rScale * Math.sin(a)];
-  const center = [cx, cn];
+  const pt = (a) => [cx + rx * Math.cos(a), cn + rn * Math.sin(a)];
 
   for (let i = 0; i < segs; i++) {
     const t0 = a0 + ((a1 - a0) * i) / segs;
     const t1 = a0 + ((a1 - a0) * (i + 1)) / segs;
     const [x0, n0] = pt(t0);
     const [x1, n1] = pt(t1);
-    const z0 = -n0, z1 = -n1, zc = -center[1];
+    const z0 = -n0, z1 = -n1, zc = -cn;
 
     const baseTop = Btop.p.length / 3;
-    for (const [vx, vy, vz] of [[center[0], y1, zc], [x0, y1, z0], [x1, y1, z1]]) {
+    for (const [vx, vy, vz] of [[cx, y1, zc], [x0, y1, z0], [x1, y1, z1]]) {
       Btop.p.push(vx, vy, vz);
       Btop.n.push(0, 1, 0);
       Btop.uv.push(vx, vz);
@@ -104,7 +104,7 @@ function buildEllipticalDeck(K, room, topMat, sideMat, cx, cn, rx, rn, a0, a1, y
     Btop.idx.push(baseTop, baseTop + 1, baseTop + 2);
 
     const baseBot = Bside.p.length / 3;
-    for (const [vx, vy, vz] of [[center[0], y0, zc], [x1, y0, z1], [x0, y0, z0]]) {
+    for (const [vx, vy, vz] of [[cx, y0, zc], [x1, y0, z1], [x0, y0, z0]]) {
       Bside.p.push(vx, vy, vz);
       Bside.n.push(0, -1, 0);
       Bside.uv.push(vx, vz);
@@ -157,7 +157,7 @@ export function buildHouse() {
   const CT = CONFIG.ceilingThickness;
 
   // ------------------------------------------------------------------
-  // 1. Apartment Structural Shell + Explicit Wall & Obstacle Registry
+  // 1. Structural Shell + Wall & Opening Registry (10.00 x 17.00 m)
   // ------------------------------------------------------------------
   const S = new RectSolid();
   const wallSegments = [];
@@ -191,84 +191,86 @@ export function buildHouse() {
     });
   };
 
-  // Main structural floor slab
-  A(-4.55, -0.05, 4.55, 14.55, BASE_Y, 0);
+  // Main floor slab (-5.00..+5.00 x 0.00..14.55 m) + North bay floor aprons
+  A(-5.00, 0.00, 5.00, 14.55, BASE_Y, 0);
+  A(-3.80, 14.55, -2.10, 14.80, BASE_Y, 0);
+  A(2.15, 14.55, 3.85, 14.80, BASE_Y, 0);
 
-  // Exterior perimeter walls
-  addWall('West Exterior Wall · الواجهة الغربية', 'reception', -4.55, -0.05, -4.35, 14.55, true);
-  addWall('East Exterior Wall · الواجهة الشرقية', 'master', 4.35, -0.05, 4.55, 14.55, true);
-  addWall('North Exterior Wall · الواجهة الشمالية', 'bedroom1', -4.55, 14.35, 4.55, 14.55, true);
-  addWall('South Balcony Facade · الواجهة الأمامية', 'reception', -4.55, -0.05, 4.55, 0.15, true);
+  // Exterior perimeter walls (10.00 m outer width)
+  addWall('West Exterior Wall · الواجهة الغربية', 'reception', -5.00, 0.00, -4.80, 14.55, true);
+  addWall('East Exterior Wall · الواجهة الشرقية', 'master', 4.80, 0.00, 5.00, 14.55, true);
+  addWall('North Exterior Wall · الواجهة الشمالية', 'bedroom1', -5.00, 14.35, 5.00, 14.55, true);
+  addWall('South Front Facade · الواجهة الأمامية', 'reception', -5.00, 0.00, 5.00, 0.20, true);
 
-  // North facade subtle bay projections (Services & Bedroom 2)
-  A(-3.65, 14.55, -2.15, 14.70, 0, H);
-  A(2.20, 14.55, 3.65, 14.70, 0, H);
+  // North bay window projections (Services + Bedroom 2, matching Crops 1 & 2)
+  A(-3.80, 14.55, -2.10, 14.80, 0, H);
+  C(-3.65, 14.30, -2.25, 14.70, 0, CONFIG.winTop);
+  A(2.15, 14.55, 3.85, 14.80, 0, H);
+  C(2.30, 14.30, 3.70, 14.70, 0, CONFIG.winTop);
 
-  // North wing partitions
-  addWall('Bedroom 1 West Wall · حائط نوم ١', 'bedroom1', -1.44, 11.24, -1.32, 14.35, true);
-  addWall('Bedroom 1 South Wall · مدخل نوم ١', 'bedroom1', -1.44, 11.24, 1.48, 11.36, true);
-  addWall('East Wing Spine Wall · الفاصل الشرقي', 'corridor', 1.42, 0.15, 1.54, 14.35, true);
+  // North wing partitions (3.50 | 3.00 | 3.50 grid lines at x = -1.50 and x = +1.50)
+  addWall('Bedroom 1 West Wall · حائط نوم ١', 'bedroom1', -1.56, 11.28, -1.44, 14.35, true);
+  addWall('Bedroom 1 South Wall · مدخل نوم ١', 'bedroom1', -1.56, 11.28, 1.44, 11.40, true);
+  addWall('East Wing Spine Wall · الفاصل الشرقي', 'corridor', 1.44, 0.20, 1.56, 14.35, true);
 
   // East wing room partitions
-  addWall('Bedroom 2 / Bedroom 3 Partition', 'bedroom2', 1.54, 10.18, 4.35, 10.30, true);
-  addWall('Bedroom 3 South Wall · حائط نوم ٣', 'bedroom3', 1.54, 7.95, 4.35, 8.07, true);
-  addWall('Dressing / Master Bath Wall · فاصل الدريسنج', 'dressing', 2.90, 6.34, 3.02, 7.95, true);
-  addWall('Master / Dressing Wall · حائط الماستر', 'master', 1.54, 6.28, 4.35, 6.40, true);
-  addWall('Master / Guest Room Wall · فاصل الماستر والضيوف', 'master', 1.54, 3.68, 4.35, 3.80, true);
+  addWall('Bedroom 2 / Bedroom 3 Partition', 'bedroom2', 1.56, 10.18, 4.80, 10.30, true);
+  addWall('Bedroom 3 South Wall · حائط نوم ٣', 'bedroom3', 1.56, 8.04, 4.80, 8.16, true);
+  addWall('Dressing / Master Bath Wall · فاصل الدريسنج', 'dressing', 3.06, 6.56, 3.18, 8.04, true);
+  addWall('Master / Dressing Wall · حائط الماستر', 'master', 1.56, 6.44, 4.80, 6.56, true);
+  addWall('Master / Front Bedroom Wall · فاصل الماستر', 'master', 1.56, 3.72, 4.80, 3.84, true);
 
-  // West wing partitions (Services / Kitchen / Guest Bath)
-  addWall('Kitchen North Wall · شمال المطبخ', 'kitchen', -4.35, 9.72, -2.14, 9.84, true);
-  addWall('Corridor Entry Pier · كتف الطرقة', 'corridor', -1.44, 9.72, -1.32, 10.34, false);
-  addWall('Kitchen East Wall · مدخل المطبخ', 'kitchen', -2.26, 5.02, -2.14, 9.84, true);
-  addWall('Kitchen / Guest Bath Wall · جنوب المطبخ', 'kitchen', -4.35, 5.02, -2.14, 5.14, true);
-  addWall('Guest Bath East Wall · مدخل حمام الضيوف', 'guestBath', -2.42, 3.68, -2.30, 5.02, true);
-  addWall('Guest Bath / Reception Wall · جنوب حمام الضيوف', 'guestBath', -4.35, 3.68, -2.30, 3.80, true);
+  // West wing partitions (Services / Kitchen 2.90x4.20 / Guest Bath 1.50)
+  addWall('Kitchen North Wall · شمال المطبخ', 'kitchen', -4.80, 9.66, -2.06, 9.78, true);
+  addWall('Corridor Entry Pier · كتف الطرقة', 'corridor', -1.56, 9.50, -1.44, 10.30, false);
+  addWall('Kitchen East Wall · مدخل المطبخ', 'kitchen', -2.18, 5.34, -2.06, 9.78, true);
+  addWall('Kitchen / Guest Bath Wall · جنوب المطبخ', 'kitchen', -4.80, 5.34, -2.06, 5.46, true);
+  addWall('Guest Bath East Wall · مدخل حمام الضيوف', 'guestBath', -2.24, 3.72, -2.12, 5.34, true);
+  addWall('Guest Bath / Reception Wall · جنوب حمام الضيوف', 'guestBath', -4.80, 3.72, -2.12, 3.84, true);
 
-  // Central Core (صالة + Corrected Continuous Central Bathroom + Upper Bath)
-  addWall('Central Core West Wall · الحائط الغربي للصالة', 'hallCenter', -0.78, 3.68, -0.66, 10.34, true);
-  addWall('Central Core East Wall · الحائط الشرقي للصالة', 'hallCenter', 0.66, 3.68, 0.78, 10.34, true);
-  addWall('Central Core South Wall · مدخل الصالة', 'hallCenter', -0.78, 3.68, 0.78, 3.80, true);
-  addWall('Central Core North Wall · شمال الحمام العلوي', 'bathUpper', -0.78, 10.22, 0.78, 10.34, true);
-  addWall('Upper Bath South Wall · جنوب الحمام العلوي', 'bathUpper', -0.66, 8.89, 0.66, 9.01, true);
-  // Central bathroom North wall (with doorway into middle chamber)
-  addWall('Central Bath North Wall · شمال الحمام المركزي', 'hallCenter', -0.66, 7.29, 0.66, 7.41, false);
-  // Central bathroom South-East doorway stub behind the vanity (NO central vertical wall!)
-  addWall('Central Bath South Vanity Stub · كتف حوض الحمام', 'hallCenter', -0.06, 4.96, 0.66, 5.08, false);
+  // Central Core (Vestibule -> سلم + Central Bath -> منور -> Upper Bath)
+  addWall('Central Core West Wall · الحائط الغربي للكور', 'hallCenter', -0.86, 3.72, -0.74, 10.30, true);
+  addWall('Central Core East Wall · الحائط الشرقي للكور', 'hallCenter', 0.54, 3.72, 0.66, 10.30, true);
+  addWall('Central Core South Wall · مدخل الكور', 'hallCenter', -0.86, 3.72, 0.66, 3.84, true);
+  addWall('Upper Bath North Wall · مدخل الحمام العلوي', 'bathUpper', -0.86, 10.18, 0.66, 10.30, true);
+  addWall('Upper Bath / Lightwell Wall · جنوب الحمام العلوي', 'bathUpper', -0.74, 8.81, 0.54, 8.93, true);
+  addWall('Lightwell / Central Bath Wall · فاصل المنور والحمام', 'lightwell', -0.74, 7.24, 0.54, 7.36, false);
+  addWall('Central Bath South Vanity Stub · كتف حوض الحمام', 'hallCenter', -0.10, 4.91, 0.54, 5.03, false);
 
-  // ---- Interior Door Openings ----
-  C(0.60, 11.20, 1.38, 11.40, 0, DH);  // Bedroom 1 door
-  C(1.38, 10.42, 1.58, 11.20, 0, DH);  // Bedroom 2 door
-  C(1.38, 9.35, 1.58, 10.15, 0, DH);   // Bedroom 3 door
-  C(2.08, 6.24, 2.84, 6.44, 0, DH);    // Master -> Dressing opening
-  C(2.86, 7.25, 3.06, 7.95, 0, DH);    // Dressing -> Master Bath door
-  C(1.38, 5.50, 1.58, 6.28, 0, DH);    // Master Bedroom door
-  C(1.38, 2.82, 1.58, 3.60, 0, DH);    // Front-Right Bedroom door
-  C(-2.30, 6.18, -2.10, 6.94, 0, DH);  // Kitchen door
-  C(-2.46, 4.14, -2.26, 4.82, 0, DH);  // Guest Bath door
-  C(-0.82, 4.10, -0.62, 4.82, 0, DH);  // Central Hall West entry door
-  C(-0.32, 7.25, 0.32, 7.45, 0, DH);   // Central Bathroom North door (matches close-up reference)
-  C(0.62, 7.35, 0.82, 8.07, 0, DH);    // Central Hall East door
-  C(-0.82, 9.05, -0.62, 9.71, 0, DH);  // Upper Bath door
-  C(-0.26, 8.85, 0.26, 9.05, 0, DH);   // Upper Bath / Hall internal pass-through
+  // ---- Interior Door Openings (walkable clear apertures synced with DOORS) ----
+  C(0.46, 11.20, 1.24, 11.46, 0, DH);  // Bedroom 1 door
+  C(1.38, 10.42, 1.62, 11.20, 0, DH);  // Bedroom 2 door
+  C(1.38, 9.07, 1.62, 9.85, 0, DH);    // Bedroom 3 door
+  C(1.68, 6.40, 2.42, 6.62, 0, DH);    // Master -> Dressing opening
+  C(3.00, 7.28, 3.24, 7.96, 0, DH);    // Dressing -> Master Bath door
+  C(1.38, 5.40, 1.62, 6.18, 0, DH);    // Master Bedroom door
+  C(1.38, 2.67, 1.62, 3.45, 0, DH);    // Front-Right Bedroom door
+  C(-2.24, 5.95, -2.00, 6.73, 0, DH);  // Kitchen door
+  C(-2.30, 4.22, -2.06, 4.94, 0, DH);  // Guest Bath door
+  C(-0.92, 4.10, -0.68, 4.82, 0, DH);  // Central Core West entry door
+  C(-0.20, 7.20, 0.36, 7.42, 0, DH);   // Central Bath -> منور passage
+  C(0.48, 7.63, 0.72, 8.35, 0, DH);    // Lightwell منور East door
+  C(-0.34, 10.14, 0.32, 10.36, 0, DH); // Upper Bath NORTH door (exact match to Crop 3)
+  C(-0.32, 8.75, 0.32, 8.98, 0, DH);   // Upper Bath / Lightwell internal pass-through
 
-  // ---- Exterior Windows & Balcony Openings ----
+  // ---- Exterior Windows & Front Terrace / Sliding Doors ----
   // North facade
-  C(-3.52, 14.30, -2.28, 14.75, CONFIG.winSill, CONFIG.winTop);
-  C(-0.60, 14.30, 0.60, 14.60, CONFIG.winSill, CONFIG.winTop);
-  C(2.32, 14.30, 3.52, 14.75, CONFIG.winSill, CONFIG.winTop);
-  // West facade
-  C(-4.60, 7.10, -4.30, 8.35, 1.05, CONFIG.winTop);
-  C(-4.60, 4.05, -4.30, 4.75, CONFIG.bathWinSill, CONFIG.bathWinTop);
-  // East facade
-  C(4.30, 8.45, 4.60, 9.55, CONFIG.winSill, CONFIG.winTop);
-  C(4.30, 6.85, 4.60, 7.60, CONFIG.bathWinSill, CONFIG.bathWinTop);
-  C(4.30, 4.15, 4.60, 5.25, CONFIG.winSill, CONFIG.winTop);
+  C(-3.65, 14.48, -2.25, 14.86, CONFIG.winSill, CONFIG.winTop);
+  C(-0.65, 14.30, 0.65, 14.60, CONFIG.winSill, CONFIG.winTop);
+  C(2.30, 14.48, 3.70, 14.86, CONFIG.winSill, CONFIG.winTop);
+  // West facade (Kitchen window + Guest Bath 0.50m window matching Crop 4)
+  C(-5.05, 7.05, -4.74, 8.40, 1.05, CONFIG.winTop);
+  C(-5.05, 4.34, -4.74, 4.84, CONFIG.bathWinSill, CONFIG.bathWinTop);
+  // East facade (Bedroom 3 + Master Bath + Master windows)
+  C(4.74, 8.65, 5.05, 9.75, CONFIG.winSill, CONFIG.winTop);
+  C(4.74, 6.95, 5.05, 7.68, CONFIG.bathWinSill, CONFIG.bathWinTop);
+  C(4.74, 4.55, 5.05, 5.75, CONFIG.winSill, CONFIG.winTop);
   // South front balcony facade
-  C(-3.65, -0.10, -2.95, 0.20, CONFIG.winSill, CONFIG.winTop);
-  C(-2.80, -0.10, -1.96, 0.20, 0, 2.35);  // Left Balcony French door (walkable!)
-  C(-0.98, -0.10, 1.15, 0.20, 0.25, 2.35);
-  C(2.30, -0.10, 3.14, 0.20, 0, 2.35);    // Right Balcony French door (walkable!)
-  C(3.26, -0.10, 3.74, 0.20, CONFIG.winSill, CONFIG.winTop);
+  C(-4.05, -0.08, -3.54, 0.25, CONFIG.winSill, CONFIG.winTop);
+  C(-3.44, -0.08, -2.66, 0.25, 0, DH);           // Left Balcony French door
+  C(-1.04, -0.08, 1.04, 0.25, 0, 2.38);          // Front Center Glazed Sliding Entrance (walkable!)
+  C(2.66, -0.08, 3.44, 0.25, 0, DH);             // Right Balcony French door
+  C(3.56, -0.08, 4.10, 0.25, CONFIG.winSill, CONFIG.winTop);
 
   const shell = S.build(
     (cx, cy, cz, nx, ny, nz) => {
@@ -279,22 +281,20 @@ export function buildHouse() {
           return 'woodFloor';
         }
         if (rm === 'kitchen' || rm === 'services') return 'tileKitchen';
-        if (rm === 'guestBath' || rm === 'masterBath' || rm === 'bathUpper' || (rm === 'hallCenter' && n > 5.0 && n < 7.35)) {
+        if (rm === 'guestBath' || rm === 'masterBath' || rm === 'bathUpper' || rm === 'lightwell' || (rm === 'hallCenter' && n > 5.0 && n < 7.30)) {
           return 'tileBath';
         }
         return 'floor';
       }
-      // Exterior golden-ochre stucco facade faces (Reference C)
       const isOuter =
-        (nx < -0.5 && cx < -4.50) ||
-        (nx > 0.5 && cx > 4.50) ||
-        (nz < -0.5 && cz < -14.50) ||
-        (nz > 0.5 && cz > -0.10);
+        (nx < -0.5 && cx < -4.92) ||
+        (nx > 0.5 && cx > 4.92) ||
+        (nz < -0.5 && cz < -14.48) ||
+        (nz > 0.5 && cz > -0.05);
       if (isOuter && cy > 0) return 'facadePlaster';
 
-      // Bathroom ceramic wall tiles across full continuous bathrooms
       const rm = roomAt(cx + nx * 0.05, n, cy);
-      if (cy > 0 && cy < H - 0.1 && (rm === 'guestBath' || rm === 'masterBath' || rm === 'bathUpper' || (rm === 'hallCenter' && n > 5.0 && n < 7.35))) {
+      if (cy > 0 && cy < H - 0.1 && (rm === 'guestBath' || rm === 'masterBath' || rm === 'bathUpper' || (rm === 'hallCenter' && n > 5.0 && n < 7.30))) {
         return 'tileBath';
       }
       return 'plaster';
@@ -306,9 +306,9 @@ export function buildHouse() {
   // 2. Ceilings
   // ------------------------------------------------------------------
   const Rf = new RectSolid();
-  Rf.add(-4.55, H, -14.55, 4.55, H + CT, 0.05);
-  Rf.add(-3.65, H, -14.70, -2.15, H + CT, -14.55);
-  Rf.add(2.20, H, -14.70, 3.65, H + CT, -14.55);
+  Rf.add(-5.00, H, -14.55, 5.00, H + CT, 0.0);
+  Rf.add(-3.80, H, -14.80, -2.10, H + CT, -14.55);
+  Rf.add(2.15, H, -14.80, 3.85, H + CT, -14.55);
 
   const roof = Rf.build(
     (cx, cy, cz, nx, ny) => (ny < -0.5 ? 'ceiling' : 'facadePlaster'),
@@ -316,19 +316,17 @@ export function buildHouse() {
   );
 
   // ------------------------------------------------------------------
-  // 3. Curved Balconies, Entrance-Matched Trim, Doors, Windows & Furnishings
+  // 3. Curved Balconies, Glazing, Furniture, Fixtures & سلم Staircase
   // ------------------------------------------------------------------
   const K = new Kit();
-  const solidObstacle = (room, mat, x0, n0, x1, n1, y0, y1, edges = true) => {
-    K.box(room, mat, x0, n0, x1, n1, y0, y1, edges);
-    obstacles.push([Math.min(x0, x1), Math.min(n0, n1), Math.max(x0, x1), Math.max(n0, n1)]);
+  const obs = (x0, n0, x1, n1, maxH = 2.4) => {
+    if (maxH > 0.1) obstacles.push([Math.min(x0, x1), Math.min(n0, n1), Math.max(x0, x1), Math.max(n0, n1)]);
   };
 
-  // ---- Curved Balconies (خدمات / تراس) ----
+  // ---- Curved Balconies (NO chairs, only the 4 potted palms) ----
   const { left: BL, center: BC, right: BR } = BALCONIES;
-
   buildEllipticalDeck(K, 'balconies', 'tileBalcony', 'facadePlaster', BC.cx, BC.cn, BC.rx, BC.rn, Math.PI * 1.12, Math.PI * 1.88, BASE_Y, -0.004, 24);
-  buildEllipticalRing(K, 'balconies', 'stone', BC.cx, BC.cn, BC.rx - 0.12, BC.rn - 0.12, BC.rx, BC.rn, Math.PI * 1.12, Math.PI * 1.88, 0, 0.34, 24);
+  buildEllipticalRing(K, 'balconies', 'stone', BC.cx, BC.cn, BC.rx - 0.10, BC.rn - 0.10, BC.rx, BC.rn, Math.PI * 1.12, Math.PI * 1.88, -0.02, 0.01, 24);
 
   for (const B of [BL, BR]) {
     buildEllipticalDeck(K, 'balconies', 'tileBalcony', 'facadePlaster', B.cx, B.cn, B.rx, B.rn, B.a0, B.a1, BASE_Y, 0, 36);
@@ -345,31 +343,29 @@ export function buildHouse() {
   }
 
   for (const p of PLANTS) {
-    const pot = new THREE.CylinderGeometry(0.18, 0.13, 0.34, 12);
-    K.geo('balconies', 'terracotta', place(pot, p.x, 0.17, p.n), 40);
-    obstacles.push([p.x - 0.22, p.n - 0.22, p.x + 0.22, p.n + 0.22]);
+    const pot = new THREE.CylinderGeometry(0.18, 0.13, 0.34, 14);
+    K.geo('balconies', 'terracotta', placeGeo(pot, p.x, 0.17, p.n), 40);
+    obs(p.x - 0.22, p.n - 0.22, p.x + 0.22, p.n + 0.22, 1.0);
     for (let f = 0; f < 10; f++) {
       const ang = (f * Math.PI * 2) / 10;
       const frond = new THREE.ConeGeometry(0.065, p.r * 1.15, 4);
       frond.translate(0, p.r * 0.55, 0);
       frond.rotateX(1.05);
       frond.rotateY(ang);
-      K.geo('balconies', 'foliage', place(frond, p.x, 0.34, p.n), 30);
+      K.geo('balconies', 'foliage', placeGeo(frond, p.x, 0.34, p.n), 30);
     }
   }
 
-  // ---- Galaxy Black Granite Border Inlays & Skirting (Reference B finish) ----
+  // ---- Galaxy Black Granite Border Inlays & Exterior Plinth (Ref B/C) ----
   const strip = 0.12;
-  // Reception granite floor border frame
-  K.box('reception', 'marbleDark', -4.28, 0.22, 1.35, 0.22 + strip, 0.001, 0.004, false);
-  K.box('reception', 'marbleDark', -4.28, 3.55 - strip, 1.35, 3.55, 0.001, 0.004, false);
-  K.box('reception', 'marbleDark', -4.28, 0.22, -4.28 + strip, 3.55, 0.001, 0.004, false);
-  K.box('reception', 'marbleDark', 1.35 - strip, 0.22, 1.35, 3.55, 0.001, 0.004, false);
-  // Exterior dark granite plinth band along West & South base (Reference C)
-  K.box('reception', 'marbleDark', -4.57, -0.07, -4.54, 14.57, 0, 0.32, false);
-  K.box('master', 'marbleDark', 4.54, -0.07, 4.57, 14.57, 0, 0.32, false);
+  K.box('reception', 'marbleDark', -4.70, 0.24, 1.36, 0.24 + strip, 0.001, 0.004, false);
+  K.box('reception', 'marbleDark', -4.70, 3.60 - strip, 1.36, 3.60, 0.001, 0.004, false);
+  K.box('reception', 'marbleDark', -4.70, 0.24, -4.70 + strip, 3.60, 0.001, 0.004, false);
+  K.box('reception', 'marbleDark', 1.36 - strip, 0.24, 1.36, 3.60, 0.001, 0.004, false);
+  K.box('reception', 'marbleDark', -5.02, -0.02, -4.99, 14.57, 0, 0.32, false);
+  K.box('master', 'marbleDark', 4.99, -0.02, 5.02, 14.57, 0, 0.32, false);
 
-  // ---- Windows & Glazing ----
+  // ---- Windows & Glazing Frames (Fixed Windows; Doors live in doors.js) ----
   const addWindow = (room, x0, n0, x1, n1, y0, y1, posts = 2) => {
     const isEW = Math.abs(x1 - x0) > Math.abs(n1 - n0);
     K.box(room, 'bronze', x0, n0, x1, n1, y0, y0 + 0.04, false);
@@ -391,211 +387,96 @@ export function buildHouse() {
     }
   };
 
-  addWindow('services', -3.52, 14.52, -2.28, 14.62, CONFIG.winSill, CONFIG.winTop, 2);
-  addWindow('bedroom1', -0.60, 14.42, 0.60, 14.50, CONFIG.winSill, CONFIG.winTop, 2);
-  addWindow('bedroom2', 2.32, 14.52, 3.52, 14.62, CONFIG.winSill, CONFIG.winTop, 2);
-  addWindow('kitchen', -4.50, 7.10, -4.42, 8.35, 1.05, CONFIG.winTop, 2);
-  addWindow('guestBath', -4.50, 4.05, -4.42, 4.75, CONFIG.bathWinSill, CONFIG.bathWinTop, 1);
-  addWindow('bedroom3', 4.42, 8.45, 4.50, 9.55, CONFIG.winSill, CONFIG.winTop, 2);
-  addWindow('masterBath', 4.42, 6.85, 4.50, 7.60, CONFIG.bathWinSill, CONFIG.bathWinTop, 1);
-  addWindow('master', 4.42, 4.15, 4.50, 5.25, CONFIG.winSill, CONFIG.winTop, 2);
-  addWindow('reception', -3.65, 0.02, -2.95, 0.08, CONFIG.winSill, CONFIG.winTop, 1);
-  addWindow('reception', -0.98, 0.02, 1.15, 0.08, 0.25, 2.35, 3);
-  addWindow('guestRoom', 3.26, 0.02, 3.74, 0.08, CONFIG.winSill, CONFIG.winTop, 1);
-  addWindow('balconies', -2.80, 0.02, -1.96, 0.08, 2.15, 2.35, 1);
-  addWindow('balconies', 2.30, 0.02, 3.14, 0.08, 2.15, 2.35, 1);
+  addWindow('services', -3.65, 14.68, -2.25, 14.78, CONFIG.winSill, CONFIG.winTop, 2);
+  addWindow('bedroom1', -0.65, 14.40, 0.65, 14.48, CONFIG.winSill, CONFIG.winTop, 2);
+  addWindow('bedroom2', 2.30, 14.68, 3.70, 14.78, CONFIG.winSill, CONFIG.winTop, 2);
+  addWindow('kitchen', -4.94, 7.05, -4.86, 8.40, 1.05, CONFIG.winTop, 2);
+  addWindow('guestBath', -4.94, 4.34, -4.86, 4.84, CONFIG.bathWinSill, CONFIG.bathWinTop, 1);
+  addWindow('bedroom3', 4.86, 8.65, 4.94, 9.75, CONFIG.winSill, CONFIG.winTop, 2);
+  addWindow('masterBath', 4.86, 6.95, 4.94, 7.68, CONFIG.bathWinSill, CONFIG.bathWinTop, 1);
+  addWindow('master', 4.86, 4.55, 4.94, 5.75, CONFIG.winSill, CONFIG.winTop, 2);
+  addWindow('reception', -4.05, 0.06, -3.54, 0.14, CONFIG.winSill, CONFIG.winTop, 1);
+  addWindow('guestRoom', 3.56, 0.06, 4.10, 0.14, CONFIG.winSill, CONFIG.winTop, 1);
+  // Overhead transom bars for front entrance & terrace doors
+  K.box('reception', 'bronze', -1.06, 0.05, 1.06, 0.15, 2.35, 2.40, false);
 
-  // ---- Doors (rich walnut paneled leaves standing open at reference angles) ----
-  for (const d of DOORS) {
-    const a = (d.open * Math.PI) / 180;
-    const dx = Math.cos(a) * d.w;
-    const dn = Math.sin(a) * d.w;
-    const thick = 0.04;
-    if (Math.abs(Math.cos(a)) > 0.5) {
-      K.box(d.room, 'oakDoor', d.x, d.n - thick / 2, d.x + dx, d.n + thick / 2, 0.01, DH - 0.02);
-    } else {
-      K.box(d.room, 'oakDoor', d.x - thick / 2, d.n, d.x + thick / 2, d.n + dn, 0.01, DH - 0.02);
-    }
-  }
-
-  // ---- Reception Living & Dining (استقبال) ----
-  K.box('reception', 'rug', -4.15, 0.45, -1.35, 3.30, 0.002, 0.018, false);
-  solidObstacle('reception', 'oakLong', -3.05, 1.35, -2.45, 2.35, 0.32, 0.38);
-  K.box('reception', 'bronze', -2.98, 1.42, -2.52, 2.28, 0, 0.32, false);
-
-  const sofa = (x0, n0, x1, n1, backSide) => {
-    solidObstacle('reception', 'oakLong', x0, n0, x1, n1, 0, 0.14, false);
-    K.box('reception', 'fabricSofa', x0, n0, x1, n1, 0.14, 0.42);
-    const bt = 0.22;
-    if (backSide === 'W') K.box('reception', 'fabricSofa', x0, n0, x0 + bt, n1, 0.42, 0.78);
-    if (backSide === 'E') K.box('reception', 'fabricSofa', x1 - bt, n0, x1, n1, 0.42, 0.78);
-    if (backSide === 'N') K.box('reception', 'fabricSofa', x0, n1 - bt, x1, n1, 0.42, 0.78);
-    if (backSide === 'S') K.box('reception', 'fabricSofa', x0, n0, x1, n0 + bt, 0.42, 0.78);
-  };
-  sofa(-4.22, 0.90, -3.45, 2.78, 'W');
-  sofa(-2.05, 0.95, -1.32, 2.75, 'E');
-  sofa(-3.35, 2.86, -2.10, 3.55, 'N');
-  sofa(-3.35, 0.18, -2.10, 0.85, 'S');
-  solidObstacle('reception', 'stone', -4.22, 2.90, -3.55, 3.50, 0, 0.52);
-  solidObstacle('reception', 'stone', -4.22, 0.22, -3.55, 0.80, 0, 0.52);
-
-  // Dining table & 8 leather chairs
-  solidObstacle('reception', 'oakLong', -0.15, 0.75, 0.55, 2.85, 0.72, 0.77);
-  for (const [lx, ln] of [[-0.08, 0.85], [0.44, 0.85], [-0.08, 2.72], [0.44, 2.72]]) {
-    K.box('reception', 'oakLong', lx, ln, lx + 0.06, ln + 0.06, 0, 0.72, false);
-  }
-  const diningChair = (x0, n0, x1, n1, backSide) => {
-    solidObstacle('reception', 'leather', x0, n0, x1, n1, 0.42, 0.47);
-    K.box('reception', 'oakLong', x0 + 0.04, n0 + 0.04, x1 - 0.04, n1 - 0.04, 0, 0.42, false);
-    if (backSide === 'W') K.box('reception', 'leather', x0, n0, x0 + 0.06, n1, 0.47, 0.84);
-    if (backSide === 'E') K.box('reception', 'leather', x1 - 0.06, n0, x1, n1, 0.47, 0.84);
-    if (backSide === 'N') K.box('reception', 'leather', x0, n1 - 0.06, x1, n1, 0.47, 0.84);
-    if (backSide === 'S') K.box('reception', 'leather', x0, n0, x1, n0 + 0.06, 0.47, 0.84);
-  };
-  for (let i = 0; i < 3; i++) {
-    const cn = 0.96 + i * 0.65;
-    diningChair(-0.56, cn, -0.18, cn + 0.42, 'W');
-    diningChair(0.58, cn, 0.96, cn + 0.42, 'E');
-  }
-  diningChair(0.0, 2.90, 0.42, 3.26, 'N');
-  diningChair(0.0, 0.34, 0.42, 0.70, 'S');
-
-  // ---- Bed Builder Helper ----
-  const addBed = (room, x0, n0, x1, n1, headSide) => {
-    solidObstacle(room, 'oakLong', x0, n0, x1, n1, 0, 0.24);
-    K.box(room, 'fabricBed', x0 + 0.03, n0 + 0.03, x1 - 0.03, n1 - 0.03, 0.24, 0.48);
-    if (headSide === 'E') {
-      K.box(room, 'oakLong', x1 - 0.08, n0, x1, n1, 0.48, 1.04);
-      const mid = (n0 + n1) / 2;
-      K.box(room, 'fabricAccent', x1 - 0.48, n0 + 0.12, x1 - 0.12, mid - 0.05, 0.48, 0.60);
-      K.box(room, 'fabricAccent', x1 - 0.48, mid + 0.05, x1 - 0.12, n1 - 0.12, 0.48, 0.60);
-      solidObstacle(room, 'oakLong', x1 - 0.44, n0 - 0.48, x1 - 0.02, n0 - 0.06, 0, 0.48);
-      solidObstacle(room, 'oakLong', x1 - 0.44, n1 + 0.06, x1 - 0.02, n1 + 0.48, 0, 0.48);
-    } else if (headSide === 'W') {
-      K.box(room, 'oakLong', x0, n0, x0 + 0.08, n1, 0.48, 1.04);
-      const mid = (n0 + n1) / 2;
-      K.box(room, 'fabricAccent', x0 + 0.12, n0 + 0.12, x0 + 0.48, mid - 0.05, 0.48, 0.60);
-      K.box(room, 'fabricAccent', x0 + 0.12, mid + 0.05, x0 + 0.48, n1 - 0.12, 0.48, 0.60);
-      solidObstacle(room, 'oakLong', x0 + 0.02, n0 - 0.48, x0 + 0.44, n0 - 0.06, 0, 0.48);
-      solidObstacle(room, 'oakLong', x0 + 0.02, n1 + 0.06, x0 + 0.44, n1 + 0.48, 0, 0.48);
-    } else if (headSide === 'S') {
-      K.box(room, 'oakLong', x0, n0, x1, n0 + 0.08, 0.48, 1.04);
-      const mid = (x0 + x1) / 2;
-      K.box(room, 'fabricAccent', x0 + 0.12, n0 + 0.12, mid - 0.05, n0 + 0.48, 0.48, 0.60);
-      K.box(room, 'fabricAccent', mid + 0.05, n0 + 0.12, x1 - 0.12, n0 + 0.48, 0.48, 0.60);
-      solidObstacle(room, 'oakLong', x0 - 0.48, n0 + 0.02, x0 - 0.06, n0 + 0.44, 0, 0.48);
-      solidObstacle(room, 'oakLong', x1 + 0.06, n0 + 0.02, x1 + 0.48, n0 + 0.44, 0, 0.48);
-    }
-  };
+  // ---- Reception Living Lounge & 8-Seat Dining (استقبال) ----
+  K.box('reception', 'rug', -4.55, 0.48, -1.65, 3.38, 0.002, 0.018, false);
+  addCoffeeTable(K, obs, 'reception', -3.40, 1.45, -2.75, 2.42, 0.42);
+  addSofa(K, obs, 'reception', -4.60, 0.95, -3.82, 2.82, 'W');
+  addSofa(K, obs, 'reception', -2.35, 1.00, -1.62, 2.80, 'E');
+  addSofa(K, obs, 'reception', -3.72, 2.92, -2.42, 3.60, 'N');
+  addSofa(K, obs, 'reception', -3.72, 0.25, -2.42, 0.92, 'S');
+  // Marble side tables flanking the West sofa
+  addCoffeeTable(K, obs, 'reception', -4.60, 2.95, -3.96, 3.55, 0.52);
+  addCoffeeTable(K, obs, 'reception', -4.60, 0.28, -3.96, 0.85, 0.52);
+  // Sculpted stone dining table + 8 contoured chairs
+  addDiningSet(K, obs, 'reception', 0.48, 1.92, 0.96, 2.15);
 
   // ---- Front-Right Bedroom (ضيوف) ----
-  addBed('guestRoom', 2.75, 1.35, 4.30, 2.85, 'E');
-  solidObstacle('guestRoom', 'oakLong', 1.56, 1.15, 1.94, 2.65, 0, 0.56);
-  const chairGeo = new THREE.BoxGeometry(0.68, 0.44, 0.68);
-  K.geo('guestRoom', 'leather', place(chairGeo, 3.85, 0.22, 0.58, Math.PI / 4), 30);
-  obstacles.push([3.45, 0.20, 4.25, 0.96]);
+  addBedSuite(K, obs, 'guestRoom', 2.82, 0.92, 4.74, 2.55, 'E');
+  addWardrobe(K, obs, 'guestRoom', 1.60, 0.55, 1.88, 2.45, 'E');
 
   // ---- Guest Bathroom (حمام الضيوف) ----
-  solidObstacle('guestBath', 'sanitary', -4.32, 4.40, -3.76, 4.78, 0, 0.40);
-  K.box('guestBath', 'sanitary', -4.32, 4.42, -4.16, 4.76, 0.40, 0.76);
-  solidObstacle('guestBath', 'stone', -3.50, 3.82, -2.75, 4.24, 0.74, 0.82);
-  K.geo('guestBath', 'sanitary', place(new THREE.CylinderGeometry(0.20, 0.14, 0.14, 16), -3.12, 0.85, 4.02), 35);
-  K.box('guestBath', 'chrome', -3.14, 3.88, -3.10, 3.96, 0.82, 0.96, false);
-  K.box('guestBath', 'mirror', -3.45, 3.81, -2.80, 3.82, 0.98, 1.90, false);
+  addToilet(K, obs, 'guestBath', -4.50, 4.98, 'S');
+  addVanityBasin(K, obs, 'guestBath', -3.55, 3.88, -2.72, 4.30, 'N');
 
-  // ---- Kitchen (مطبخ) ----
-  solidObstacle('kitchen', 'oak', -4.35, 5.15, -2.90, 5.75, 0, 0.86);
-  K.box('kitchen', 'countertop', -4.35, 5.15, -2.90, 5.75, 0.86, 0.91);
-  solidObstacle('kitchen', 'oak', -4.35, 5.75, -3.75, 9.72, 0, 0.86);
-  K.box('kitchen', 'countertop', -4.35, 5.75, -3.75, 9.72, 0.86, 0.91);
-  solidObstacle('kitchen', 'oak', -3.75, 9.12, -2.80, 9.72, 0, 0.86);
-  K.box('kitchen', 'countertop', -3.75, 9.12, -2.80, 9.72, 0.86, 0.91);
-  solidObstacle('kitchen', 'appliance', -2.88, 5.16, -2.28, 5.76, 0, 2.05);
-  solidObstacle('kitchen', 'oak', -2.78, 9.12, -2.28, 9.70, 0, 2.05);
-  K.box('kitchen', 'chrome', -3.95, 5.26, -3.20, 5.64, 0.88, 0.92);
-  K.box('kitchen', 'chrome', -3.60, 5.20, -3.56, 5.34, 0.92, 1.15, false);
-  K.box('kitchen', 'stoveTop', -4.28, 7.22, -3.80, 7.82, 0.91, 0.93);
-  for (const [bx, bn] of [[-4.14, 7.36], [-3.94, 7.36], [-4.14, 7.66], [-3.94, 7.66]]) {
-    K.geo('kitchen', 'chrome', place(new THREE.CylinderGeometry(0.065, 0.065, 0.015, 16), bx, 0.94, bn), 40);
-  }
-  K.box('kitchen', 'stoveTop', -3.55, 9.18, -2.95, 9.66, 0.91, 0.93);
-  for (const [bx, bn] of [[-3.40, 9.32], [-3.12, 9.32], [-3.40, 9.52], [-3.12, 9.52]]) {
-    K.geo('kitchen', 'chrome', place(new THREE.CylinderGeometry(0.065, 0.065, 0.015, 16), bx, 0.94, bn), 40);
-  }
+  // ---- U-Shaped Kitchen Suite (مطبخ) ----
+  addKitchenSuite(K, obs);
 
-  // ---- Corrected Continuous Central Bathroom (حمام مركزي, x: -0.66..0.66, n: 5.02..7.29) ----
-  // NO central masonry wall; continuous open floor with wet-zone stone curb & transparent glass shower screen
-  K.box('hallCenter', 'stone', -0.05, 5.08, -0.02, 7.28, 0.001, 0.018, false);
-  // Vanity cabinet + oval porcelain basin + chrome faucet + wall mirror on East wall
-  solidObstacle('hallCenter', 'oak', 0.06, 5.10, 0.65, 5.72, 0.0, 0.78);
-  K.box('hallCenter', 'stone', 0.05, 5.09, 0.66, 5.73, 0.78, 0.82);
-  K.geo('hallCenter', 'sanitary', place(new THREE.CylinderGeometry(0.20, 0.14, 0.14, 18), 0.35, 0.86, 5.41), 35);
-  K.box('hallCenter', 'chrome', 0.50, 5.39, 0.63, 5.43, 0.82, 0.95, false);
-  K.box('hallCenter', 'mirror', 0.64, 5.14, 0.655, 5.68, 0.98, 1.96, false);
-  // Toilet on East wall
-  solidObstacle('hallCenter', 'sanitary', 0.12, 5.94, 0.65, 6.32, 0, 0.40);
-  K.box('hallCenter', 'sanitary', 0.47, 5.95, 0.65, 6.31, 0.40, 0.78);
-  // Walk-in shower at North end with frameless clear glass screen & chrome hardware
-  K.box('hallCenter', 'stone', -0.02, 6.56, 0.65, 7.28, 0, 0.04);
-  solidObstacle('hallCenter', 'glass', 0.02, 6.54, 0.65, 6.56, 0.04, 2.02);
-  K.box('hallCenter', 'chrome', 0.02, 6.53, 0.65, 6.57, 2.02, 2.05, false);
-  K.box('hallCenter', 'chrome', 0.56, 6.92, 0.64, 6.96, 1.10, 1.95, false);
-  K.geo('hallCenter', 'chrome', place(new THREE.CylinderGeometry(0.11, 0.09, 0.02, 16), 0.44, 1.96, 6.94), 35);
+  // ---- Central Core: سلم Staircase + Continuous Central Bath (حمام مركزي) ----
+  addStaircase(K, obs);
+  addVanityBasin(K, obs, 'hallCenter', -0.02, 5.05, 0.52, 5.68, 'W');
+  addToilet(K, obs, 'hallCenter', 0.24, 6.08, 'W');
+  addShowerAssembly(K, obs, 'hallCenter', -0.06, 6.52, 0.52, 7.22, 'E');
 
-  // ---- Upper Bath (حمام علوي, x: -0.66..0.66, n: 9.01..10.22) ----
-  solidObstacle('bathUpper', 'sanitary', -0.62, 9.14, -0.14, 9.52, 0, 0.40);
-  K.box('bathUpper', 'sanitary', -0.62, 9.16, -0.46, 9.50, 0.40, 0.76);
-  solidObstacle('bathUpper', 'stone', 0.12, 9.80, 0.62, 10.18, 0.74, 0.82);
+  // ---- Upper Bath (حمام علوي — West WC, North door per Crop 3) ----
+  addToilet(K, obs, 'bathUpper', -0.44, 9.42, 'E');
+  addVanityBasin(K, obs, 'bathUpper', 0.04, 9.02, 0.52, 9.64, 'W');
 
-  // ---- Master Bedroom (ماستر) ----
-  addBed('master', 2.48, 3.82, 4.02, 5.36, 'S');
-  solidObstacle('master', 'oak', 1.56, 4.10, 2.06, 5.48, 0, 2.35);
+  // ---- Master Suite (ماستر) + Dressing (دريسنج) + Master Bath (حمام الماستر) ----
+  addBedSuite(K, obs, 'master', 2.65, 3.86, 4.25, 5.45, 'S');
+  addWardrobe(K, obs, 'master', 1.60, 4.02, 2.10, 5.38, 'E');
+  addWardrobe(K, obs, 'dressing', 1.60, 6.60, 2.98, 7.04, 'N');
 
-  // ---- Dressing Room (دريسنج) ----
-  solidObstacle('dressing', 'oak', 1.56, 6.42, 2.88, 6.86, 0, 2.35);
-
-  // ---- Master En-Suite Bath (حمام الماستر) ----
-  solidObstacle('masterBath', 'sanitary', 3.82, 7.45, 4.32, 7.82, 0, 0.40);
-  K.box('masterBath', 'sanitary', 4.16, 7.47, 4.32, 7.80, 0.40, 0.76);
-  solidObstacle('masterBath', 'stone', 3.12, 6.42, 3.82, 6.84, 0.74, 0.82);
-  K.geo('masterBath', 'sanitary', place(new THREE.CylinderGeometry(0.18, 0.12, 0.12, 14), 3.47, 0.85, 6.63), 35);
-  K.box('masterBath', 'sanitary', 3.86, 6.42, 4.33, 7.05, 0, 0.06);
+  addToilet(K, obs, 'masterBath', 4.46, 7.66, 'W');
+  addVanityBasin(K, obs, 'masterBath', 3.24, 6.60, 3.96, 7.02, 'N');
+  K.box('masterBath', 'stone', 4.18, 6.60, 4.78, 7.20, 0, 0.05, true);
 
   // ---- Bedroom 3 (نوم ٣) ----
-  solidObstacle('bedroom3', 'oak', 1.56, 8.12, 2.04, 9.15, 0, 2.35);
-  solidObstacle('bedroom3', 'oakLong', 3.55, 8.12, 4.32, 9.95, 0, 0.24);
-  K.box('bedroom3', 'fabricBed', 3.58, 8.15, 4.30, 9.92, 0.24, 0.46);
-  K.box('bedroom3', 'fabricAccent', 3.70, 9.48, 4.25, 9.88, 0.46, 0.58);
+  addWardrobe(K, obs, 'bedroom3', 1.60, 8.20, 2.08, 9.25, 'E');
+  addBedSuite(K, obs, 'bedroom3', 3.76, 8.22, 4.76, 10.10, 'E', { showNightstands: false });
 
   // ---- Bedroom 1 (نوم ١) ----
-  addBed('bedroom1', -1.30, 12.15, 0.12, 13.45, 'W');
-  solidObstacle('bedroom1', 'oak', 0.90, 13.20, 1.40, 14.32, 0, 2.35);
+  addBedSuite(K, obs, 'bedroom1', -1.40, 12.15, 0.15, 13.62, 'W');
+  addWardrobe(K, obs, 'bedroom1', 0.92, 13.15, 1.40, 14.30, 'W');
 
   // ---- Bedroom 2 (نوم ٢) ----
-  addBed('bedroom2', 2.65, 11.75, 4.32, 13.22, 'E');
-  solidObstacle('bedroom2', 'oak', 1.56, 13.20, 2.06, 14.32, 0, 2.35);
-  solidObstacle('bedroom2', 'oakLong', 3.10, 10.32, 4.28, 10.72, 0, 0.78);
+  addBedSuite(K, obs, 'bedroom2', 2.85, 11.78, 4.74, 13.38, 'E');
+  addWardrobe(K, obs, 'bedroom2', 1.60, 13.15, 2.10, 14.30, 'E');
+  addWardrobe(K, obs, 'bedroom2', 3.18, 10.34, 4.65, 10.76, 'N');
 
-  // ---- Recessed Architectural Ceiling Downlights (dark bezel + warm lamp, Ref B) ----
+  // ---- Recessed Architectural Ceiling Downlights (Ref B) ----
   const lights = [
-    ['reception', -2.7, 1.85],
-    ['reception', 0.2, 1.85],
-    ['guestRoom', 3.0, 1.85],
-    ['kitchen', -3.2, 7.4],
-    ['corridor', -1.45, 7.2],
-    ['corridor', 0.0, 10.8],
-    ['hallCenter', 0.0, 6.2],
-    ['master', 3.1, 5.0],
-    ['bedroom3', 2.9, 9.1],
-    ['bedroom1', 0.05, 12.8],
-    ['bedroom2', 3.0, 12.4],
-    ['services', -2.9, 12.2],
+    ['reception', -2.95, 1.90],
+    ['reception', 0.45, 1.90],
+    ['guestRoom', 3.20, 1.85],
+    ['kitchen', -3.45, 7.50],
+    ['corridor', -1.45, 6.80],
+    ['corridor', 0.0, 10.80],
+    ['hallCenter', -0.10, 6.10],
+    ['lightwell', -0.10, 8.05],
+    ['master', 3.25, 5.10],
+    ['bedroom3', 3.15, 9.15],
+    ['bedroom1', 0.0, 12.80],
+    ['bedroom2', 3.25, 12.40],
+    ['services', -3.05, 12.20],
   ];
   for (const [rm, lx, ln] of lights) {
     const ring = new THREE.CylinderGeometry(0.072, 0.072, 0.008, 18);
-    K.geo(rm, 'bronze', place(ring, lx, H - 0.005, ln), null);
+    K.geo(rm, 'bronze', placeGeo(ring, lx, H - 0.005, ln), null);
     const d = new THREE.CylinderGeometry(0.048, 0.048, 0.012, 18);
-    K.geo(rm, 'lamp', place(d, lx, H - 0.008, ln), 35);
+    K.geo(rm, 'lamp', placeGeo(d, lx, H - 0.008, ln), 35);
   }
 
   return { shell, roof, kit: K, bucketToGeometry, wallSegments, doorCarves, obstacles };

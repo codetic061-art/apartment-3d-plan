@@ -34,39 +34,44 @@
   </header>
 
   <section id="hero" class="overlay">
-    <p class="eyebrow">Architectural Sheet A-101 <span class="wide">&nbsp;·&nbsp; 9.00 × 14.50 m Modular Grid</span></p>
+    <p class="eyebrow">Architectural Sheet A-101 <span class="wide">&nbsp;·&nbsp; 10.00 × 17.00 m Architectural Plan</span></p>
     <h1><span class="l"><span>Your plan,</span></span><span class="l"><span>in <em>true 3D.</em></span></span></h1>
-    <p class="lede"><span class="wide">Curved front balconies, reception, central hall, kitchen, master suite, and three bedrooms. </span>Scroll to raise the walls and walk inside, or enter First-Person mode.</p>
+    <p class="lede"><span class="wide">Curved front balconies, reception, سلم &amp; central core, kitchen, master suite, and three bedrooms. </span>Scroll to raise the walls and walk inside, or enter First-Person mode.</p>
     <p class="cue"><i></i> Scroll</p>
   </section>
 
   <aside id="cap-lift" class="overlay cap">
     <p class="no">02 &nbsp; The Lift · رفع الحوائط</p>
-    <p class="say">The floor plan cuts at +1.20 m. Now every wall, window, and curved balcony rises in place.</p>
+    <p class="say">The floor plan cuts at +1.20 m. Now every wall, glazed entrance, and curved balcony rises in place.</p>
   </aside>
 
   <aside id="cap-balc" class="overlay cap">
-    <p class="no">03 &nbsp; Curved Balconies &amp; Reception · تراس واستقبال</p>
-    <p class="say">Two semicircular balconies open into the reception and dining hall (استقبال).</p>
+    <p class="no">03 &nbsp; Entrance, Reception &amp; Guest Bath · استقبال وحمام الضيوف</p>
+    <p class="say">Glazed sliding entrance doors open smoothly into Reception (استقبال) and the West Corridor to Guest Bath.</p>
   </aside>
 
   <aside id="cap-core" class="overlay cap">
-    <p class="no">04 &nbsp; Kitchen &amp; Central Core · مطبخ وصالة</p>
-    <p class="say">Through the corridor past the guest bath, U-shaped kitchen (مطبخ), and continuous central bath (حمام).</p>
+    <p class="no">04 &nbsp; Kitchen, Services &amp; Central Core · مطبخ وخدمات ومنور وسلم</p>
+    <p class="say">Tour the U-shaped kitchen (مطبخ), services wing, upper bath, منور lightwell, سلم staircase, and continuous bath.</p>
   </aside>
 
   <aside id="cap-suite" class="overlay cap">
-    <p class="no">05 &nbsp; Master Suite &amp; Bedrooms · ماستر وغرف النوم</p>
-    <p class="say">Upper corridor (طرقة) connecting bedrooms 1–3 (نوم ١–٣), master suite (ماستر), dressing, and services (خدمات).</p>
+    <p class="no">05 &nbsp; Master Suite &amp; Bedroom Wing · ماستر وغرف النوم</p>
+    <p class="say">Master bedroom (ماستر), dressing, en-suite bath, and Bedrooms 3 &amp; 2 ending ready for Free First-Person Mode.</p>
   </aside>
 
   <nav id="rail" aria-hidden="true">
     <span data-at="0">01 Sheet</span>
-    <span data-at="0.06">02 Lift</span>
-    <span data-at="0.28">03 Reception</span>
-    <span data-at="0.55">04 Kitchen</span>
-    <span data-at="0.78">05 Bedrooms</span>
+    <span data-at="0.16">02 Reception</span>
+    <span data-at="0.34">03 Kitchen</span>
+    <span data-at="0.51">04 Core &amp; Stairs</span>
+    <span data-at="0.80">05 Master &amp; Rooms</span>
   </nav>
+
+  <div id="cta-fp" class="overlay" aria-live="polite">
+    <p class="cta-tag">TOUR COMPLETE · BEDROOM 2 (نوم ٢)</p>
+    <button type="button" id="btn-go-fp">GO TO FIRST PERSON · التجول الحر</button>
+  </div>
 
   <!-- First-person HUD & Mobile Virtual Joystick -->
   <div id="fp-hint" class="chip" aria-hidden="true">
@@ -112,7 +117,6 @@
       <button type="button" id="btn-measure">Measure</button>
       <button type="button" id="btn-ceiling">Ceiling: ON</button>
       <button type="button" id="btn-finish">Finish: Auto</button>
-      <button type="button" id="btn-scale">Grid: 9.0×14.5m</button>
     </div>
   </div>
 

@@ -123,22 +123,17 @@ export function buildSheet({ frame, portrait, labelScale = 1, anisotropy = 8, pl
     }
   }
 
-  // North column widths & overall width
-  const colLabels = isA1 ? ['3.50', '3.00', '3.50'] : ['3.00', '3.00', '3.00'];
-  const totalWLabel = isA1 ? ['10.00'] : ['9.00'];
-  dimString('x', 15.25, [-4.55, -1.38, 1.48, 4.55], colLabels, { from: 14.85, side: -1 });
-  dimString('x', 16.15, [-4.55, 4.55], totalWLabel, { from: 15.45, side: -1 });
+  // North column widths & overall width (unified 10.00 m: 3.50 | 3.00 | 3.50)
+  const colLabels = ['3.50', '3.00', '3.50'];
+  const totalWLabel = ['10.00'];
+  dimString('x', 15.35, [-5.00, -1.50, 1.50, 5.00], colLabels, { from: 14.85, side: -1 });
+  dimString('x', 16.25, [-5.00, 5.00], totalWLabel, { from: 15.55, side: -1 });
 
-  // West bay depths & overall depth
-  if (isA1) {
-    dimString('n', -5.25, [-2.35, 3.74, 5.08, 9.78, 14.55], ['6.90', '1.50', '4.20', '5.50'], { from: -4.8, side: -1 });
-    dimString('n', -6.15, [-2.35, 14.55], ['17.00'], { from: -5.45, side: -1 });
-  } else {
-    dimString('n', -5.25, [0.0, 3.74, 6.34, 9.78, 14.55], ['4.00', '3.00', '3.50', '4.00'], { from: -4.8, side: -1 });
-    dimString('n', -6.15, [0.0, 14.55], ['14.50'], { from: -5.45, side: -1 });
-  }
+  // West bay depths & overall depth (unified 17.00 m: 5.80 | 1.50 | 4.20 | 5.50)
+  dimString('n', -5.65, [-2.55, 3.72, 5.34, 9.66, 14.55], ['5.80', '1.50', '4.20', '5.50'], { from: -5.10, side: -1 });
+  dimString('n', -6.55, [-2.55, 14.55], ['17.00'], { from: -5.85, side: -1 });
 
-  // ---- Door Swings ----
+  // ---- Door Swings & Sliding Tracks ----
   const arc = (key, cx, cn, r, a0, a1, y) => {
     const N = 16;
     for (let i = 0; i < N; i++) {
@@ -148,7 +143,14 @@ export function buildSheet({ frame, portrait, labelScale = 1, anisotropy = 8, pl
     }
   };
   for (const d of DOORS) {
-    arc(`thin|${d.room}`, d.x, d.n, d.w, d.open, d.closed, FLOOR);
+    if (d.type === 'sliding') {
+      seg(`thin|${d.room}`, d.x, d.n - 0.04, d.x + d.w, d.n - 0.04, FLOOR);
+      seg(`thin|${d.room}`, d.x, d.n + 0.04, d.x + d.w, d.n + 0.04, FLOOR);
+    } else {
+      arc(`thin|${d.room}`, d.x, d.n, d.w, d.open, d.closed, FLOOR);
+      const oa = (d.open * Math.PI) / 180;
+      seg(`thin|${d.room}`, d.x, d.n, d.x + Math.cos(oa) * d.w, d.n + Math.sin(oa) * d.w, FLOOR);
+    }
   }
 
   // ---- Architectural Floor Tile & Plan Hatch Lines ----
@@ -156,11 +158,11 @@ export function buildSheet({ frame, portrait, labelScale = 1, anisotropy = 8, pl
     for (let x = x0 + stepX; x < x1 - 0.02; x += stepX) seg(key, x, n0, x, n1, y);
     for (let n = n0 + stepN; n < n1 - 0.02; n += stepN) seg(key, x0, n, x1, n, y);
   };
-  grid('hatch|reception', -4.35, 0.15, 1.42, 3.68, 0.85, 0.85, FLOOR);
-  grid('hatch|kitchen', -4.35, 5.14, -2.26, 9.72, 0.6, 0.6, FLOOR);
-  grid('hatch|guestBath', -4.35, 3.80, -2.42, 5.02, 0.45, 0.45, FLOOR);
-  grid('hatch|masterBath', 3.02, 6.40, 4.35, 7.95, 0.45, 0.45, FLOOR);
-  grid('hatch|bathUpper', -0.66, 9.01, 0.66, 10.22, 0.45, 0.45, FLOOR);
+  grid('hatch|reception', -4.75, 0.22, 1.42, 3.68, 0.85, 0.85, FLOOR);
+  grid('hatch|kitchen', -4.75, 5.48, -2.20, 9.64, 0.6, 0.6, FLOOR);
+  grid('hatch|guestBath', -4.75, 3.86, -2.26, 5.30, 0.45, 0.45, FLOOR);
+  grid('hatch|masterBath', 3.20, 6.58, 4.75, 8.02, 0.45, 0.45, FLOOR);
+  grid('hatch|bathUpper', -0.72, 8.95, 0.52, 10.16, 0.45, 0.45, FLOOR);
 
   // Balcony curved radial tile hatch lines
   for (const B of [BALCONIES.left, BALCONIES.right]) {
@@ -179,14 +181,24 @@ export function buildSheet({ frame, portrait, labelScale = 1, anisotropy = 8, pl
   }
 
   // Dressing room closet hanger ticks (matches Reference A1)
-  for (let x = 1.68; x < 2.84; x += 0.16) {
-    seg('thin|dressing', x, 6.48, x + 0.06, 6.82, FLOOR + 2.38);
+  for (let x = 1.68; x < 2.94; x += 0.16) {
+    seg('thin|dressing', x, 6.64, x + 0.06, 7.00, FLOOR + 2.38);
   }
 
-  // Central bathroom thin internal fixture zone outlines (NOT masonry walls!)
-  seg('thin|hallCenter', -0.04, 5.08, -0.04, 7.28, FLOOR);
-  seg('thin|hallCenter', -0.04, 5.75, 0.65, 5.75, FLOOR);
-  seg('thin|hallCenter', -0.04, 6.55, 0.65, 6.55, FLOOR);
+  // Staircase (سلم) CAD step tread lines & Central Bath shower zone outlines on sheet
+  const sc = CONFIG.staircase;
+  if (sc?.enabled) {
+    const startN = sc.n0 + 0.36;
+    for (let i = 0; i <= sc.treads; i++) {
+      const sn = Math.min(sc.n1, startN + i * sc.treadDepth);
+      seg('thin|hallCenter', sc.x0, sn, sc.x1, sn, FLOOR + 0.02);
+    }
+    const sxm = (sc.x0 + sc.x1) / 2;
+    seg('thin|hallCenter', sxm, startN, sxm, startN + sc.treads * sc.treadDepth, FLOOR + 0.02);
+  }
+  seg('thin|hallCenter', -0.06, 5.04, -0.06, 7.22, FLOOR);
+  seg('thin|hallCenter', -0.06, 5.72, 0.54, 5.72, FLOOR);
+  seg('thin|hallCenter', -0.06, 6.52, 0.54, 6.52, FLOOR);
 
   // ---- Architectural Sheet Border & Title Block ----
   const inset = 0.85;
@@ -258,7 +270,7 @@ function titleBlock(TW, TH, k = 1, dimensionsMode = 'A2') {
   g.font = `600 ${Math.min(yA * 0.32, W * 0.058)}px ${ARABIC}`;
   g.fillText('شقة سكنية · Apartment', m, yA - m * 0.9);
   g.textAlign = 'right';
-  value(dimensionsMode === 'A1' ? '10.00 × 17.00 m*' : '9.00 × 14.50 m', W - m, yA, 0.28);
+  value('10.00 × 17.00 m', W - m, yA, 0.28);
   g.textAlign = 'left';
 
   label('DRAWING', 0, yA);
