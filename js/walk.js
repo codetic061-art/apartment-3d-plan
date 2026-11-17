@@ -45,15 +45,26 @@ export class CollisionWorld {
       z0: -Math.max(n0, n1),
       z1: -Math.min(n0, n1),
     }));
+    this.dynamicColliders = [];
+  }
+
+  setDynamicObstacles(boxes = []) {
+    this.dynamicColliders = boxes.map(([x0, n0, x1, n1]) => ({
+      x0: Math.min(x0, x1),
+      x1: Math.max(x0, x1),
+      z0: -Math.max(n0, n1),
+      z1: -Math.min(n0, n1),
+    }));
   }
 
   _pushOut(x, z, r) {
     let px = x;
     let pz = z;
 
-    // 1. Resolve circle vs every wall / furniture AABB
+    // 1. Resolve circle vs every wall, furniture & closed-door AABB
+    const active = this.dynamicColliders.length ? [...this.colliders, ...this.dynamicColliders] : this.colliders;
     for (let iter = 0; iter < 3; iter++) {
-      for (const b of this.colliders) {
+      for (const b of active) {
         const cx = Math.max(b.x0, Math.min(px, b.x1));
         const cz = Math.max(b.z0, Math.min(pz, b.z1));
         const dx = px - cx;
@@ -81,15 +92,17 @@ export class CollisionWorld {
       }
     }
 
-    // 2. Enforce exterior perimeter & curved balcony boundaries
-    px = Math.max(-4.35 + r, Math.min(4.35 - r, px));
+    // 2. Enforce exterior perimeter (10.00 x 17.00 m) & curved balcony boundaries
+    px = Math.max(-4.80 + r, Math.min(4.80 - r, px));
     pz = Math.max(-14.35 + r, pz);
 
     const n = -pz;
     if (n < 0.0) {
-      const B = px < 0 ? BALCONIES.left : BALCONIES.right;
-      const rxMax = Math.max(0.3, B.rx - 0.22 - r);
-      const rnMax = Math.max(0.3, B.rn - 0.22 - r);
+      const isCenter = Math.abs(px) < 1.15 && n > -1.52;
+      const B = isCenter ? BALCONIES.center : (px < 0 ? BALCONIES.left : BALCONIES.right);
+      const pad = isCenter ? 0.14 : 0.22;
+      const rxMax = Math.max(0.3, B.rx - pad - r);
+      const rnMax = Math.max(0.3, B.rn - pad - r);
       const ex = (px - B.cx) / rxMax;
       const en = (n - B.cn) / rnMax;
       const mag = Math.hypot(ex, en);
@@ -97,7 +110,7 @@ export class CollisionWorld {
         px = B.cx + (ex / mag) * rxMax;
         pz = -(B.cn + (en / mag) * rnMax);
       }
-      if (pz > 2.25) pz = 2.25;
+      if (pz > 2.40) pz = 2.40;
     }
 
     return [px, pz];

@@ -12,6 +12,7 @@ import { buildSheet } from './sheet.js';
 import { makeRig } from './rig.js';
 import { CollisionWorld, FirstPersonController } from './walk.js';
 import { createMeasureTool } from './measure.js';
+import { createDoorSystem } from './doors.js';
 
 const params = new URLSearchParams(location.search);
 const CAPTURE = params.has('capture');
@@ -136,10 +137,12 @@ for (const room in H.roof.edges) roofGroup.add(lines('structure', room, H.roof.e
 for (const room in H.kit.e) house.add(lines('furniture', room, H.kit.e[room]));
 
 const collisionWorld = new CollisionWorld(H.wallSegments, H.doorCarves, H.obstacles);
+const doorSystem = createDoorSystem(M, planesFor, collisionWorld);
+house.add(doorSystem.group);
 const fpController = new FirstPersonController(camera, canvas, collisionWorld);
 const measureTool = createMeasureTool(scene, camera, canvas, shellMeshes, H.wallSegments);
 
-// Soft contact shadows under key furniture
+// Soft contact shadows under key furniture (10.00 x 17.00 m layout)
 const contact = (x0, n0, x1, n1, y, strength) => {
   const m = new THREE.Mesh(new THREE.PlaneGeometry(x1 - x0, n1 - n0), contactShadowMaterial(strength));
   m.rotation.x = -Math.PI / 2;
@@ -147,14 +150,14 @@ const contact = (x0, n0, x1, n1, y, strength) => {
   m.renderOrder = 2;
   house.add(m);
 };
-contact(-4.25, 0.85, -3.40, 2.82, 0.021, 0.45);
-contact(-2.10, 0.90, -1.28, 2.80, 0.021, 0.45);
-contact(-3.10, 1.30, -2.40, 2.40, 0.021, 0.42);
-contact(-0.58, 0.35, 0.98, 3.25, 0.008, 0.38);
-contact(2.65, 1.30, 4.35, 2.90, 0.008, 0.45);
-contact(2.40, 3.78, 4.08, 5.42, 0.008, 0.45);
-contact(-1.35, 12.10, 0.18, 13.50, 0.008, 0.45);
-contact(2.60, 11.70, 4.35, 13.28, 0.008, 0.45);
+contact(-4.65, 0.90, -3.78, 2.86, 0.021, 0.45);
+contact(-2.40, 0.95, -1.58, 2.84, 0.021, 0.45);
+contact(-3.45, 1.40, -2.70, 2.46, 0.021, 0.42);
+contact(-0.25, 0.65, 1.20, 3.15, 0.008, 0.38);
+contact(2.75, 0.85, 4.78, 2.60, 0.008, 0.45);
+contact(2.60, 3.80, 4.30, 5.50, 0.008, 0.45);
+contact(-1.44, 12.10, 0.20, 13.66, 0.008, 0.45);
+contact(2.80, 11.72, 4.78, 13.42, 0.008, 0.45);
 
 // ---------------------------------------------------------------------------
 // lighting: natural late-afternoon sun + balanced 3500K interior fill
@@ -162,11 +165,11 @@ contact(2.60, 11.70, 4.35, 13.28, 0.008, 0.45);
 const el = (SUN_ELEV * Math.PI) / 180;
 const sunDir = new THREE.Vector3(SUN_HEADING[0] * Math.cos(el), -Math.sin(el), SUN_HEADING[1] * Math.cos(el)).normalize();
 const sun = new THREE.DirectionalLight(0xffdfb8, 5.8);
-sun.target.position.set(0, 0.8, -6.5);
+sun.target.position.set(0, 0.8, -7.0);
 sun.position.copy(sun.target.position).addScaledVector(sunDir, -60);
 sun.castShadow = true;
 sun.shadow.mapSize.set(4096, 4096);
-Object.assign(sun.shadow.camera, { left: -12, right: 12, top: 14, bottom: -14, near: 10, far: 130 });
+Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 15, bottom: -15, near: 10, far: 130 });
 sun.shadow.bias = -0.00025;
 sun.shadow.normalBias = 0.015;
 scene.add(sun, sun.target);
@@ -174,16 +177,16 @@ scene.add(sun, sun.target);
 scene.add(new THREE.HemisphereLight(0xf1f5fc, 0xd4c6b0, 0.85));
 
 const interiorLights = [
-  [0xffe6c4, 4.0, 10, -2.5, 2.45, -1.9],
-  [0xffe6c4, 3.8, 10, 0.3, 2.45, -1.9],
-  [0xffeed8, 3.4, 8, 3.0, 2.45, -1.9],
-  [0xf6f8ff, 3.6, 9, -3.2, 2.45, -7.4],
-  [0xffe6c4, 3.2, 9, -1.45, 2.45, -7.2],
-  [0xffeed8, 3.0, 8, 0.0, 2.45, -6.2],
-  [0xffe6c4, 3.4, 9, 3.1, 2.45, -5.0],
+  [0xffe6c4, 4.0, 10, -2.95, 2.45, -1.9],
+  [0xffe6c4, 3.8, 10, 0.45, 2.45, -1.9],
+  [0xffeed8, 3.4, 8, 3.20, 2.45, -1.85],
+  [0xf6f8ff, 3.6, 9, -3.45, 2.45, -7.5],
+  [0xffe6c4, 3.2, 9, -1.45, 2.45, -6.8],
+  [0xffeed8, 3.0, 8, -0.10, 2.45, -6.1],
+  [0xffe6c4, 3.4, 9, 3.25, 2.45, -5.1],
   [0xf5f8ff, 3.2, 9, 0.0, 2.45, -12.8],
-  [0xf5f8ff, 3.2, 9, 3.0, 2.45, -12.4],
-  [0xf5f8ff, 3.2, 9, -2.9, 2.45, -12.2],
+  [0xf5f8ff, 3.2, 9, 3.25, 2.45, -12.4],
+  [0xf5f8ff, 3.2, 9, -3.05, 2.45, -12.2],
 ];
 for (const [col, inten, dist, lx, ly, lz] of interiorLights) {
   const pl = new THREE.PointLight(col, inten, dist, 2);
@@ -257,6 +260,7 @@ const rail = [...document.querySelectorAll('#rail span')];
 const grain = document.getElementById('grain');
 const fpHint = document.getElementById('fp-hint');
 const fpJoystick = document.getElementById('fp-joystick');
+const ctaFp = document.getElementById('cta-fp');
 const sp = (v) => Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 let last = null;
 
@@ -302,13 +306,17 @@ function drawTour(s) {
   camera.updateProjectionMatrix();
 
   CUT.constant = o.cut;
-  roofGroup.visible = ceilingVisible;
+  roofGroup.visible = ceilingVisible && o.cut > CONFIG.wallHeight + 0.05;
   scene.fog.near = o.fogNear;
   scene.fog.far = o.fogFar;
   applyFinish(o);
 
+  doorSystem.update(camera.position, CAPTURE ? 1.0 : 1 / 30, s <= 0.12 ? 'sheet' : 'tour');
+
   renderer.render(scene, camera);
   updateHud(o.fov, o.y, o.cut);
+
+  if (ctaFp) ctaFp.classList.toggle('on', viewMode === 'tour' && s >= 0.96);
 
   for (const r of rail) r.classList.remove('on');
   let on = rail[0];
@@ -347,13 +355,10 @@ function syncUI() {
   btnFin.textContent = finLabels[finishMode];
   btnFin.classList.toggle('on', finishMode !== 'auto');
 
-  const btnScale = document.getElementById('btn-scale');
-  btnScale.textContent = dimensionsMode === 'A1' ? 'Grid: 10.0×17.0m*' : 'Grid: 9.0×14.5m';
-  btnScale.classList.toggle('on', dimensionsMode === 'A1');
-
   const isFp = viewMode === 'fp';
   if (fpHint) fpHint.classList.toggle('on', isFp);
   if (fpJoystick) fpJoystick.classList.toggle('on', isFp);
+  if (ctaFp) ctaFp.classList.toggle('on', viewMode === 'tour' && proxy.s >= 0.96);
   document.body.classList.toggle('mode-locked', viewMode !== 'tour' && viewMode !== 'sheet');
 }
 
@@ -365,6 +370,17 @@ function killCameraTweens() {
 
 function animateCameraTo(pos, target, fov) {
   killCameraTweens();
+  if (CAPTURE) {
+    camera.position.set(pos[0], pos[1], pos[2]);
+    controls.target.set(target[0], target[1], target[2]);
+    camera.fov = fov;
+    camera.updateProjectionMatrix();
+    controls.update();
+    clampRoomOrbit();
+    renderer.render(scene, camera);
+    updateHud(camera.fov, camera.position.y, CUT.constant);
+    return;
+  }
   gsap.to(camera.position, { x: pos[0], y: pos[1], z: pos[2], duration: 0.75, ease: 'power3.out' });
   gsap.to(controls.target, { x: target[0], y: target[1], z: target[2], duration: 0.75, ease: 'power3.out' });
   gsap.to(camera, {
@@ -373,10 +389,14 @@ function animateCameraTo(pos, target, fov) {
     ease: 'power3.out',
     onUpdate: () => {
       camera.updateProjectionMatrix();
-      if (CAPTURE) tick();
+      controls.update();
+      clampRoomOrbit();
+      renderer.render(scene, camera);
     },
     onComplete: () => {
-      if (CAPTURE) tick();
+      controls.update();
+      clampRoomOrbit();
+      renderer.render(scene, camera);
     },
   });
 }
@@ -513,30 +533,38 @@ const cap = (sel, a, b) => {
   tl.fromTo(sel, { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.03 }, a);
   if (b) tl.to(sel, { autoAlpha: 0, y: -16, duration: 0.03 }, b);
 };
-cap('#cap-lift', 0.08, 0.25);
-cap('#cap-balc', 0.30, 0.50);
-cap('#cap-core', 0.56, 0.74);
-cap('#cap-suite', 0.80, null);
+cap('#cap-lift', 0.06, 0.15);
+cap('#cap-balc', 0.17, 0.29);
+cap('#cap-core', 0.34, 0.65);
+cap('#cap-suite', 0.74, 0.95);
 
 let drawn = -1;
 let prevTime = performance.now();
 function tick() {
   const now = performance.now();
-  const dt = (now - prevTime) / 1000;
+  const dt = Math.min(0.1, Math.max(0.001, (now - prevTime) / 1000));
   prevTime = now;
 
   if (viewMode === 'tour' || viewMode === 'sheet') {
+    const stepMode = viewMode === 'sheet' || proxy.s <= 0.12 ? 'sheet' : 'tour';
+    const before = doorSystem.getState().map((d) => d.progress);
     if (proxy.s !== drawn) {
       drawn = proxy.s;
       drawTour(drawn);
+    } else {
+      doorSystem.update(camera.position, dt, stepMode);
+      const changed = doorSystem.getState().some((d, i) => Math.abs(d.progress - before[i]) > 0.002);
+      if (changed) renderer.render(scene, camera);
     }
   } else if (viewMode === 'fp') {
+    doorSystem.update(camera.position, dt, 'fp');
     fpController.step(dt);
     roofGroup.visible = ceilingVisible;
     CUT.constant = CUT_OPEN;
     renderer.render(scene, camera);
     updateHud(camera.fov, camera.position.y, CUT.constant);
   } else {
+    doorSystem.update(camera.position, dt, viewMode);
     controls.update();
     clampRoomOrbit();
     if (viewMode === 'top') {
@@ -590,10 +618,41 @@ function wireControls() {
     syncUI();
   });
 
-  document.getElementById('btn-scale').addEventListener('click', () => {
-    dimensionsMode = dimensionsMode === 'A2' ? 'A1' : 'A2';
-    rebuildSheet();
-    syncUI();
+  // Green end-of-tour CTA: seamless transition into Free First-Person Mode in Bedroom 2
+  const btnGoFp = document.getElementById('btn-go-fp');
+  if (btnGoFp) {
+    btnGoFp.addEventListener('click', () => {
+      const cx = camera.position.x;
+      const cn = -camera.position.z;
+      const cyaw = camera.rotation.y;
+      const cpitch = camera.rotation.x;
+      activeRoomKey = 'bedroom2';
+      const selEl = document.getElementById('focus-room');
+      if (selEl) selEl.value = 'bedroom2';
+      setMode('fp');
+      fpController.spawnAt(cx, cn, cyaw, cpitch);
+      renderer.render(scene, camera);
+    });
+  }
+
+  // Click any interactive door leaf to toggle it open/closed
+  const doorRay = new THREE.Raycaster();
+  const doorPtr = new THREE.Vector2();
+  let downPos = null;
+  canvas.addEventListener('pointerdown', (e) => {
+    downPos = { x: e.clientX, y: e.clientY };
+  });
+  canvas.addEventListener('pointerup', (e) => {
+    if (!downPos || measureTool.isActive() || fpController.pointerLocked) return;
+    if (Math.hypot(e.clientX - downPos.x, e.clientY - downPos.y) > 5) return;
+    const rect = canvas.getBoundingClientRect();
+    doorPtr.set(((e.clientX - rect.left) / rect.width) * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+    doorRay.setFromCamera(doorPtr, camera);
+    const hits = doorRay.intersectObjects(doorSystem.pickMeshes, false);
+    if (hits.length > 0 && hits[0].object.userData.doorIndex !== undefined) {
+      doorSystem.toggleByIndex(hits[0].object.userData.doorIndex);
+      renderer.render(scene, camera);
+    }
   });
 
   rail.forEach((span) => {
@@ -692,6 +751,8 @@ async function boot() {
     dimensionsMode,
     measuring: measureTool.isActive(),
     selectedWall: measureTool.getSelected()?.label || null,
+    doors: doorSystem.getState(),
+    ctaVisible: !!(ctaFp && ctaFp.classList.contains('on')),
     errors: errors.length,
     calls: renderer.info.render.calls,
     tris: renderer.info.render.triangles,
@@ -701,6 +762,7 @@ async function boot() {
   window.__focusRoom = focusRoom;
   window.__fp = fpController;
   window.__measure = measureTool;
+  window.__doors = doorSystem;
   window.__tick = tick;
 
   const loading = document.getElementById('loading');
