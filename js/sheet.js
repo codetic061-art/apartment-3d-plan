@@ -183,6 +183,11 @@ export function buildSheet({ frame, portrait, labelScale = 1, anisotropy = 8, pl
     seg('thin|dressing', x, 6.48, x + 0.06, 6.82, FLOOR + 2.38);
   }
 
+  // Central bathroom thin internal fixture zone outlines (NOT masonry walls!)
+  seg('thin|hallCenter', -0.04, 5.08, -0.04, 7.28, FLOOR);
+  seg('thin|hallCenter', -0.04, 5.75, 0.65, 5.75, FLOOR);
+  seg('thin|hallCenter', -0.04, 6.55, 0.65, 6.55, FLOOR);
+
   // ---- Architectural Sheet Border & Title Block ----
   const inset = 0.85;
   const side = portrait ? -4 : inset;
@@ -253,7 +258,7 @@ function titleBlock(TW, TH, k = 1, dimensionsMode = 'A2') {
   g.font = `600 ${Math.min(yA * 0.32, W * 0.058)}px ${ARABIC}`;
   g.fillText('شقة سكنية · Apartment', m, yA - m * 0.9);
   g.textAlign = 'right';
-  value(dimensionsMode === 'A1' ? '10.00 × 17.00 m' : '9.00 × 14.50 m', W - m, yA, 0.28);
+  value(dimensionsMode === 'A1' ? '10.00 × 17.00 m*' : '9.00 × 14.50 m', W - m, yA, 0.28);
   g.textAlign = 'left';
 
   label('DRAWING', 0, yA);
@@ -287,8 +292,8 @@ function titleBlock(TW, TH, k = 1, dimensionsMode = 'A2') {
   value('+1.20 m', cells[1], H, 0.32);
   label('SCALE', cells[2], yB);
   value(PROJECT.scale, cells[2], H, 0.32);
-  label('WALL H', cells[3], yB);
-  value(`${CONFIG.wallHeight.toFixed(2)} m`, cells[3], H, 0.32);
+  label('WALL H*', cells[3], yB);
+  value(`${CONFIG.wallHeight.toFixed(2)} m*`, cells[3], H, 0.32);
 
   const texture = new THREE.CanvasTexture(c);
   texture.colorSpace = THREE.SRGBColorSpace;

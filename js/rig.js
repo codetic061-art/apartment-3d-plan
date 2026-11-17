@@ -1,6 +1,6 @@
 // Scroll-Driven Camera Trajectory (s: 0 -> 1)
 //
-// Five architectural stops:
+// C0-continuous across all 5 architectural stops for smooth forward & reverse scroll:
 //   01 Sheet             0.00 - 0.06   Flat 2 deg telephoto plan cut at +1.20 m
 //   02 The Lift          0.06 - 0.28   Walls rise, camera tilts to isometric view
 //   03 Balconies & Rec.  0.28 - 0.55   Approach curved balconies & enter Reception
@@ -56,7 +56,6 @@ export function makeRig(aspect) {
   const portrait = aspect < 0.9;
   const fovWalk = portrait ? 74 : aspect < 1.5 ? 60 : 54;
 
-  // Frame the 9.00 x 14.50 m apartment + curved balconies on the initial sheet
   const F0 = portrait ? 36.5 : 23.5;
   const cn = portrait ? 9.2 : 6.0;
   const cx = portrait ? -0.4 : -0.22 * ((F0 * aspect) / 2);
@@ -66,18 +65,23 @@ export function makeRig(aspect) {
   const T = (deg) => Math.tan((deg * rad) / 2);
   const LAND_Z = 5.4;
   const TARGET_Z = 0.0;
-  const landFrame = 2 * (LAND_Z - TARGET_Z) * T(fovWalk);
+  const LAND_ELEV = 4;
+  const EYE_Y = CONFIG.eyeHeight;
+  const landDist = LAND_Z - TARGET_Z;
+  const landFrame = 2 * landDist * T(fovWalk);
+  const tyAtLand = EYE_Y - landDist * Math.sin(LAND_ELEV * rad);
+  const zAtLand = TARGET_Z + landDist * Math.cos(LAND_ELEV * rad);
+
   const { sheetEnd: s1, liftEnd: s2, landed: s3 } = STOPS;
 
   const early = (t) => 0.5 * io(t) + 0.5 * (1 - (1 - t) * (1 - t));
-  const elev = track([[0, 90], [s1, 90], [s2, 36, early], [s3, 2, io]]);
+  const elev = track([[0, 90], [s1, 90], [s2, 36, early], [s3, LAND_ELEV, io]]);
   const fovL = track([[0, L(T(2))], [s1, L(T(2))], [s2, L(T(6)), io], [s3, L(T(fovWalk)), io5]]);
   const frmL = track([[0, L(F0)], [s1, L(F0)], [s2, L(portrait ? 26 : 19), io], [s3, L(landFrame), io5]]);
   const tx = track([[0, cx], [s1, cx], [s2, 0.0, io], [s3, -1.35, io]]);
-  const ty = track([[0, 0], [s1, 0], [s2, 1.0, io], [s3, 1.55, io]]);
+  const ty = track([[0, 0], [s1, 0], [s2, 1.0, io], [s3, tyAtLand, io]]);
   const tz = track([[0, -cn], [s1, -cn], [s2, -5.5, io], [s3, TARGET_Z, io]]);
 
-  // Cut rises cleanly up past wallHeight so interior stays visible until roof closes or ceiling is toggled
   const cut = track([
     [0, CUT_PLAN],
     [s1 + 0.01, CUT_PLAN],
@@ -89,17 +93,17 @@ export function makeRig(aspect) {
   const fogN = track([[0, L(4000)], [s2, L(4000)], [s3, L(24), io]]);
   const fogF = track([[0, L(9000)], [s2, L(9000)], [s3, L(85), io]]);
 
-  // Collision-free walk path through the apartment
+  // Continuous walk path matching s3 boundary exactly
   const px = glide([
     [s3, -1.35],
-    [0.52, -1.42],
+    [0.52, -1.40],
     [0.64, -1.38],
     [0.76, -1.76],
     [0.86, -0.95],
     [1.00, 0.45],
   ]);
   const pz = glide([
-    [s3, 5.4],
+    [s3, zAtLand],
     [0.52, 0.2],
     [0.64, -5.2],
     [0.76, -9.6],
@@ -107,15 +111,15 @@ export function makeRig(aspect) {
     [1.00, -10.68],
   ]);
   const pyaw = glide([
-    [s3, -0.05],
-    [0.52, 0.04],
+    [s3, 0.0],
+    [0.52, 0.05],
     [0.64, 0.10],
     [0.76, 0.04],
     [0.86, -0.68],
     [1.00, -1.15],
   ]);
   const ppitch = glide([
-    [s3, -5 * rad],
+    [s3, -LAND_ELEV * rad],
     [0.54, -4 * rad],
     [0.75, -3 * rad],
     [1.00, -4 * rad],
@@ -144,14 +148,13 @@ export function makeRig(aspect) {
     } else {
       o.fov = fovWalk;
       o.x = px(s);
-      o.y = 1.58;
+      o.y = EYE_Y;
       o.z = pz(s);
       o.yaw = pyaw(s);
       o.pitch = ppitch(s);
       o.dist = 6;
     }
 
-    // Progressive room-by-room material reveal synchronized with camera progress
     o.reveals = {
       balconies: span(s, 0.28, 0.44),
       reception: span(s, 0.34, 0.54),

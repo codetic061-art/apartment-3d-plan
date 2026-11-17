@@ -4,8 +4,10 @@
 // n runs South-to-North (0.00 at front balcony facade to 14.50 at rear facade).
 // In three.js world space: (x, y up, z = -n).
 //
-// Proportions are derived directly from Reference A1 (10.00 x 17.00 m envelope)
-// and Reference A2 (9.00 x 14.50 m modular grid).
+// Proportions are derived from Reference A1 (10.00 x 17.00 m outer envelope)
+// and Reference A2 (9.00 x 14.50 m modular grid). Because these two supplied
+// sheets carry differing overall figures and omit vertical elevations, unverified
+// vertical/thickness defaults are marked and documented explicitly in CONFIG.
 
 export const PAPER = '#f1eee6';
 export const INK = '#17171a';
@@ -14,22 +16,23 @@ export const GROUND_Y = -0.16;
 export const BASE_Y = -0.15;
 export const CUT_PLAN = 1.2;
 export const CUT_OPEN = 5.4;
-export const EYE = 1.6;
+export const EYE = 1.60;
 
-// Configurable architectural defaults (not explicitly dimensioned on the 2D drawing)
+// Configurable architectural defaults (assumed values, not verified on 2D plan)
 export const CONFIG = {
-  wallHeight: 3.0,          // Assumed clear floor-to-ceiling height (m)
-  ceilingThickness: 0.24,   // Assumed slab thickness (m)
-  extWallT: 0.20,           // Assumed exterior wall thickness (m)
-  intWallT: 0.12,           // Assumed interior partition thickness (m)
-  doorHeight: 2.20,         // Assumed interior door leaf height (m)
-  winSill: 0.90,            // Assumed standard window sill height (m)
-  winTop: 2.35,             // Assumed standard window head height (m)
-  bathWinSill: 1.45,        // Assumed bathroom window sill height (m)
-  bathWinTop: 2.25,         // Assumed bathroom window head height (m)
-  balconyParapetH: 0.42,    // Solid masonry curb under curved railing (m)
-  balconyRailH: 1.05,       // Curved metal balustrade height (m)
-  dimensionsMode: 'A2',     // 'A2' (9.00 x 14.50 m) or 'A1' (10.00 x 17.00 m)
+  eyeHeight: 1.60,          // Assumed human walkthrough eye height (m)*
+  wallHeight: 3.00,         // Assumed clear floor-to-ceiling height (m)*
+  ceilingThickness: 0.24,   // Assumed slab thickness (m)*
+  extWallT: 0.20,           // Assumed exterior wall thickness (m)*
+  intWallT: 0.12,           // Assumed interior partition thickness (m)*
+  doorHeight: 2.20,         // Assumed interior door leaf height (m)*
+  winSill: 0.90,            // Assumed standard window sill height (m)*
+  winTop: 2.35,             // Assumed standard window head height (m)*
+  bathWinSill: 1.45,        // Assumed bathroom window sill height (m)*
+  bathWinTop: 2.25,         // Assumed bathroom window head height (m)*
+  balconyParapetH: 0.42,    // Assumed masonry curb under curved railing (m)*
+  balconyRailH: 1.05,       // Assumed metal balustrade height (m)*
+  dimensionsMode: 'A2',     // 'A2' (9.00 x 14.50 m modular) or 'A1' (10.00 x 17.00 m*)
 };
 
 // All apartment rooms / zones.
@@ -39,14 +42,16 @@ export const ROOMS = [
   {
     key: 'balconies',
     ar: 'خدمات / تراس',
-    name: 'BALCONIES',
+    name: 'FRONT BALCONIES',
     dimA2: '1.50 × 3.00',
     dimA1: '2.90',
     x0: -4.70, x1: 4.70, n0: -2.85, n1: 0.0,
     ceil: 30, walk: true, dir: [0, 1],
     labelAt: [-2.75, -1.35],
     small: true,
-    focus: { pos: [-3.2, 4.2, 5.4], target: [0.0, 0.8, 0.8] },
+    bounds: { x0: -4.35, x1: 4.35, n0: -2.05, n1: -0.15 },
+    spawn: [-2.70, -1.15, 0.0],
+    focus: { pos: [-3.85, 1.85, 1.75], target: [-2.45, 0.85, 0.65] },
   },
   {
     key: 'reception',
@@ -57,7 +62,9 @@ export const ROOMS = [
     x0: -4.60, x1: 1.48, n0: 0.0, n1: 3.74,
     ceil: CONFIG.wallHeight, walk: true, dir: [0, 1],
     labelAt: [-0.95, 1.85],
-    focus: { pos: [-1.3, 2.2, 2.2], target: [-1.5, 0.9, -2.6] },
+    bounds: { x0: -4.30, x1: 1.38, n0: 0.22, n1: 3.62 },
+    spawn: [-1.25, 1.15, 0.25],
+    focus: { pos: [0.95, 1.85, -3.25], target: [-2.35, 0.78, -1.65] },
   },
   {
     key: 'guestRoom',
@@ -69,19 +76,23 @@ export const ROOMS = [
     ceil: CONFIG.wallHeight, walk: true, dir: [0, 1],
     labelAt: [2.45, 0.72],
     small: true,
-    focus: { pos: [2.1, 2.0, -0.4], target: [3.4, 0.8, -2.3] },
+    bounds: { x0: 1.58, x1: 4.30, n0: 0.22, n1: 3.62 },
+    spawn: [2.20, 1.30, -0.75],
+    focus: { pos: [1.85, 1.85, -0.55], target: [3.35, 0.75, -2.05] },
   },
   {
     key: 'guestBath',
     ar: 'حمام',
-    name: 'BATH',
+    name: 'GUEST BATH',
     dimA2: '1.40 × 1.80',
     dimA1: '1.50 × 2.10',
     x0: -4.60, x1: -2.32, n0: 3.74, n1: 5.08,
     ceil: CONFIG.wallHeight, walk: true, dir: [-1, 0],
     labelAt: [-3.20, 4.58],
     small: true,
-    focus: { pos: [-1.6, 2.1, -4.4], target: [-3.6, 0.9, -4.4] },
+    bounds: { x0: -4.30, x1: -2.44, n0: 3.84, n1: 4.98 },
+    spawn: [-2.85, 4.50, 1.55],
+    focus: { pos: [-2.65, 1.85, -4.82], target: [-3.75, 0.85, -4.32] },
   },
   {
     key: 'kitchen',
@@ -92,31 +103,37 @@ export const ROOMS = [
     x0: -4.60, x1: -2.18, n0: 5.08, n1: 9.78,
     ceil: CONFIG.wallHeight, walk: true, dir: [-1, 0],
     labelAt: [-2.98, 7.45],
-    focus: { pos: [-2.4, 2.7, -5.8], target: [-3.6, 0.9, -8.2] },
+    bounds: { x0: -4.30, x1: -2.28, n0: 5.18, n1: 9.68 },
+    spawn: [-2.75, 6.60, 0.35],
+    focus: { pos: [-2.55, 1.90, -6.35], target: [-3.85, 0.88, -8.25] },
   },
   {
     key: 'bathUpper',
     ar: 'حمام',
-    name: 'BATH',
+    name: 'UPPER BATH',
     dimA2: '1.40 × 2.40',
     dimA1: '1.40 × 2.40',
     x0: -0.72, x1: 0.72, n0: 8.95, n1: 10.30,
     ceil: CONFIG.wallHeight, walk: true, dir: [0, 1],
     labelAt: [0.16, 9.52],
     small: true,
-    focus: { pos: [-1.5, 2.2, -9.6], target: [0.0, 0.9, -9.6] },
+    bounds: { x0: -0.62, x1: 0.62, n0: 9.04, n1: 10.18 },
+    spawn: [0.05, 9.60, 1.2],
+    focus: { pos: [0.45, 1.95, -9.22], target: [-0.25, 0.75, -9.70] },
   },
   {
     key: 'hallCenter',
-    ar: 'صالة',
-    name: 'HALL',
+    ar: 'صالة / حمام',
+    name: 'CENTRAL BATH & HALL',
     dimA2: '1.40 × 5.50',
     dimA1: '1.40 × 5.50',
     x0: -0.72, x1: 0.72, n0: 3.74, n1: 8.95,
     ceil: CONFIG.wallHeight, walk: true, dir: [0, 1],
     labelAt: [0.0, 4.35],
     small: true,
-    focus: { pos: [0.0, 4.5, -5.8], target: [0.0, 0.8, -6.4] },
+    bounds: { x0: -0.62, x1: 0.62, n0: 3.84, n1: 8.85 },
+    spawn: [-0.30, 5.45, -0.32],
+    focus: { pos: [-0.45, 1.85, -5.18], target: [0.35, 0.85, -6.55] },
   },
   {
     key: 'corridor',
@@ -128,18 +145,22 @@ export const ROOMS = [
     ceil: CONFIG.wallHeight, walk: true, dir: [0, 1],
     labelAt: [-0.20, 10.82],
     small: true,
-    focus: { pos: [-1.4, 1.8, -4.5], target: [-1.2, 1.4, -10.5] },
+    bounds: { x0: -2.10, x1: 1.38, n0: 3.84, n1: 11.18 },
+    spawn: [-1.45, 5.80, 0.0],
+    focus: { pos: [-1.45, 1.85, -4.40], target: [-1.45, 1.00, -10.20] },
   },
   {
     key: 'master',
     ar: 'ماستر',
-    name: 'MASTER',
+    name: 'MASTER BEDROOM',
     dimA2: '3.00 × 4.00',
     dimA1: '3.50 × 4.00',
     x0: 1.48, x1: 4.60, n0: 3.74, n1: 6.34,
     ceil: CONFIG.wallHeight, walk: true, dir: [1, 0],
     labelAt: [3.15, 5.80],
-    focus: { pos: [1.6, 2.2, -5.4], target: [3.2, 0.9, -4.9] },
+    bounds: { x0: 1.58, x1: 4.30, n0: 3.84, n1: 6.24 },
+    spawn: [2.35, 5.75, -0.80],
+    focus: { pos: [1.85, 1.90, -5.95], target: [3.35, 0.75, -4.65] },
   },
   {
     key: 'dressing',
@@ -151,19 +172,23 @@ export const ROOMS = [
     ceil: CONFIG.wallHeight, walk: true, dir: [0, 1],
     labelAt: [2.22, 7.45],
     small: true,
-    focus: { pos: [2.2, 2.4, -6.2], target: [2.2, 1.0, -7.2] },
+    bounds: { x0: 1.58, x1: 2.86, n0: 6.44, n1: 7.92 },
+    spawn: [2.25, 7.35, 2.80],
+    focus: { pos: [2.65, 1.95, -7.72], target: [2.15, 0.90, -6.65] },
   },
   {
     key: 'masterBath',
-    ar: 'حمام',
-    name: 'BATH',
+    ar: 'حمام الماستر',
+    name: 'MASTER BATH',
     dimA2: '1.40 × 2.00',
     dimA1: '1.50 × 1.80',
     x0: 2.96, x1: 4.60, n0: 6.34, n1: 8.01,
     ceil: CONFIG.wallHeight, walk: true, dir: [1, 0],
     labelAt: [3.55, 7.42],
     small: true,
-    focus: { pos: [2.4, 2.5, -7.2], target: [3.8, 0.9, -7.2] },
+    bounds: { x0: 3.04, x1: 4.30, n0: 6.44, n1: 7.92 },
+    spawn: [3.35, 7.50, -2.50],
+    focus: { pos: [3.20, 1.95, -7.72], target: [3.85, 0.75, -6.75] },
   },
   {
     key: 'bedroom3',
@@ -174,7 +199,9 @@ export const ROOMS = [
     x0: 1.48, x1: 4.60, n0: 8.01, n1: 10.24,
     ceil: CONFIG.wallHeight, walk: true, dir: [1, 0],
     labelAt: [2.72, 9.15],
-    focus: { pos: [1.5, 2.2, -9.2], target: [3.3, 0.9, -9.1] },
+    bounds: { x0: 1.58, x1: 4.30, n0: 8.10, n1: 10.14 },
+    spawn: [2.55, 9.55, -0.80],
+    focus: { pos: [1.85, 1.90, -9.95], target: [3.70, 0.75, -8.85] },
   },
   {
     key: 'services',
@@ -185,7 +212,9 @@ export const ROOMS = [
     x0: -4.60, x1: -1.38, n0: 9.78, n1: 14.60,
     ceil: CONFIG.wallHeight, walk: true, dir: [0, 1],
     labelAt: [-2.95, 13.05],
-    focus: { pos: [-2.1, 2.2, -10.5], target: [-3.2, 1.0, -13.4] },
+    bounds: { x0: -4.30, x1: -1.48, n0: 9.88, n1: 14.30 },
+    spawn: [-2.90, 11.40, 0.10],
+    focus: { pos: [-2.00, 1.95, -10.50], target: [-3.20, 0.95, -13.50] },
   },
   {
     key: 'bedroom1',
@@ -196,7 +225,9 @@ export const ROOMS = [
     x0: -1.38, x1: 1.48, n0: 11.30, n1: 14.60,
     ceil: CONFIG.wallHeight, walk: true, dir: [0, 1],
     labelAt: [0.55, 12.45],
-    focus: { pos: [0.9, 2.2, -11.3], target: [-0.3, 0.9, -13.1] },
+    bounds: { x0: -1.28, x1: 1.38, n0: 11.40, n1: 14.30 },
+    spawn: [0.85, 12.10, 0.65],
+    focus: { pos: [1.10, 1.90, -11.75], target: [-0.45, 0.75, -13.05] },
   },
   {
     key: 'bedroom2',
@@ -207,7 +238,9 @@ export const ROOMS = [
     x0: 1.48, x1: 4.60, n0: 10.24, n1: 14.60,
     ceil: CONFIG.wallHeight, walk: true, dir: [0, 1],
     labelAt: [3.05, 13.82],
-    focus: { pos: [1.8, 2.2, -10.8], target: [3.3, 0.9, -12.7] },
+    bounds: { x0: 1.58, x1: 4.30, n0: 10.34, n1: 14.30 },
+    spawn: [2.30, 11.15, -0.65],
+    focus: { pos: [1.85, 1.95, -10.85], target: [3.45, 0.75, -12.65] },
   },
 ];
 
@@ -217,14 +250,14 @@ export const EXTRA_LABELS = [
   { ar: 'تراس', name: 'TERRACE', x: 2.75, n: -1.35, room: 'balconies', small: true },
 ];
 
-// Curved front balcony geometric parameters (verified from pixel arcs)
+// Curved front balcony geometric parameters
 export const BALCONIES = {
   left: { cx: -2.72, cn: -0.02, rx: 1.80, rn: 2.35, a0: Math.PI, a1: 2 * Math.PI },
   center: { cx: 0.0, cn: 0.0, rx: 1.18, rn: 1.48, a0: Math.PI, a1: 2 * Math.PI },
   right: { cx: 2.72, cn: -0.02, rx: 1.80, rn: 2.35, a0: Math.PI, a1: 2 * Math.PI },
 };
 
-// Potted plants visible on the two curved front balconies in Reference A
+// Potted plants visible on the two curved front balconies
 export const PLANTS = [
   { x: -3.95, n: -0.58, r: 0.42 },
   { x: -1.68, n: -0.58, r: 0.42 },
@@ -232,9 +265,9 @@ export const PLANTS = [
   { x: 3.95, n: -0.58, r: 0.42 },
 ];
 
-// Doors extracted directly from Reference A1/A2 (hinge x, hinge n, width, openAngleDeg, closedAngleDeg, room)
+// Doors matching Reference A1/A2 and the close-up bathroom reference
 export const DOORS = [
-  // Left balcony French door (hinge at x=-2.05, n=0.0, swings south-west or north-east into balcony)
+  // Left balcony French door
   { x: -2.02, n: -0.04, w: 0.78, open: -90, closed: 180, room: 'balconies' },
   // Right balcony French door
   { x: 2.35, n: -0.04, w: 0.78, open: -90, closed: 0, room: 'balconies' },
@@ -244,13 +277,15 @@ export const DOORS = [
   { x: -2.32, n: 4.82, w: 0.68, open: 0, closed: -90, room: 'guestBath' },
   // Kitchen door (from west corridor)
   { x: -2.18, n: 6.24, w: 0.76, open: 180, closed: 90, room: 'kitchen' },
-  // Central hall entry door (from west corridor)
+  // Central hall entry door (from west corridor into south vestibule)
   { x: -0.72, n: 4.10, w: 0.72, open: 180, closed: 90, room: 'corridor' },
-  // Central bathroom door (from central hall vestibule)
-  { x: -0.04, n: 5.65, w: 0.66, open: 0, closed: 90, room: 'hallCenter' },
+  // Central bathroom South door (from south vestibule into continuous bathroom)
+  { x: -0.66, n: 5.02, w: 0.58, open: 90, closed: 0, room: 'hallCenter' },
+  // Central bathroom North door (swings northward into middle alcove clear of shower glass)
+  { x: -0.30, n: 7.35, w: 0.60, open: 90, closed: 0, room: 'hallCenter' },
   // Central hall east door (to east corridor)
   { x: 0.72, n: 8.05, w: 0.72, open: 0, closed: -90, room: 'corridor' },
-  // West corridor divider door (north end by kitchen/bath)
+  // West corridor divider door
   { x: -0.72, n: 9.76, w: 0.68, open: -90, closed: 180, room: 'corridor' },
   // Upper bathroom door (west wall)
   { x: -0.72, n: 9.05, w: 0.66, open: 180, closed: 90, room: 'bathUpper' },
@@ -266,7 +301,6 @@ export const DOORS = [
   { x: 1.38, n: 11.30, w: 0.78, open: 90, closed: 180, room: 'bedroom1' },
 ];
 
-// Sun direction: warm late-afternoon daylight from south-west
 export const SUN_ELEV = 24;
 export const SUN_HEADING = [0.46, -0.888];
 
